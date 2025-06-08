@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form
-from utils.ai_forward import send_cv_to_ai_server
+from app.utils.ai_forward import send_cv_to_ai_server
 
 router = APIRouter()
 

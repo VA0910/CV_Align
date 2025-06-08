@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import connect_to_mongo, close_mongo_connection
 from app.routes import company, auth, job_role, users, candidate
-from backend.app.routes import evaluate
+from app.routes import evaluate
 import logging
 
 # --- Logging Configuration ---
