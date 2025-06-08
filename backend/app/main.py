@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import connect_to_mongo, close_mongo_connection
 from app.routes import company, auth, job_role, users, candidate
+from backend.app.routes import evaluate
 import logging
 
 # --- Logging Configuration ---
@@ -42,6 +43,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(job_role.router, prefix="/job-roles", tags=["Job Roles"])
 app.include_router(users.router)
 app.include_router(candidate.router, prefix="/candidates", tags=["Candidates"])
+app.include_router(evaluate.router, prefix="/api")
 
 # --- Root Endpoint ---
 @app.get("/")
