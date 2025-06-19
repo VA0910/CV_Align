@@ -17,6 +17,11 @@ import argparse
 import json
 import re
 import logging
+import sys
+
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import validate_api_keys
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +38,10 @@ os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 def analyze_cv(cv_path, job_description):
     """Analyze a CV against a job description using AI."""
     try:
+        # Validate API keys first
+        if not validate_api_keys():
+            raise ValueError("Missing required API keys. Please check your configuration.")
+        
         # Get file extension
         file_ext = os.path.splitext(cv_path)[1].lower()
         
@@ -64,7 +73,7 @@ def analyze_cv(cv_path, job_description):
         You are an experienced HR and recruitment assistant tasked with evaluating a candidate's CV against a provided job description to determine their eligibility and suitability for the role. Your analysis must be fair, objective, and based solely on the CV and job description.
                                                 
         **Task**:
-        1. Extract the **applicant’s name**, **CGPA/percentage in college**, **degree**, and **course/major** from the CV’s education section.
+        1. Extract the **applicant's name**, **CGPA/percentage in college**, **degree**, and **course/major** from the CV's education section.
         2. Check the **eligibility criteria** explicitly stated in the job description (e.g., required experience, specific skills, education, certifications).
         - If the candidate does not meet *any* eligibility criterion, return only:  
             ```
@@ -232,14 +241,6 @@ def parse_output(output):
             "reason": f"Failed to parse AI output: {str(e)}",
             "ats_score": 0
         }
-
-st.title('CV_Align')
-input_text=st.text_input("Provide Job Description")
-
-output_parser=StrOutputParser()
-
-if input_text:
-    st.write(retrieval_chain.invoke({"input":input_text})['answer'])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

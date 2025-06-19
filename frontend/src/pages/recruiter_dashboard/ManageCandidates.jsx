@@ -110,7 +110,7 @@ const ManageCandidates = () => {
   const filteredCandidates = useMemo(() => {
     let filtered = candidates.filter(candidate => {
       const nameMatch = candidate.candidate_name?.toLowerCase().includes(filters.name.toLowerCase()) || !filters.name;
-      const positionMatch = candidate.job_role_id?.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
+      const positionMatch = candidate.job_role_title?.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
       const scoreMatch = isScoreInRange(candidate.ats_score, filters.scoreRange);
       const statusMatch = !filters.status || candidate.status === filters.status;
 
@@ -139,7 +139,7 @@ const ManageCandidates = () => {
   const columns = [
     { key: 'serialNo', label: 'S.No', sortable: false },
     { key: 'candidate_name', label: 'Candidate Name', sortable: true },
-    { key: 'job_role_id', label: 'Applied Role', sortable: true },
+    { key: 'job_role_title', label: 'Applied Role', sortable: true },
     { key: 'ats_score', label: 'Score', sortable: true },
     { key: 'feedback', label: 'Generated Feedback', sortable: false },
     { key: 'actions', label: 'Actions', sortable: false }
@@ -271,7 +271,7 @@ const ManageCandidates = () => {
                   >
                     <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
                     <td className="py-3 px-4 text-[#01295B] font-medium">{candidate.candidate_name}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{candidate.job_role_id}</td>
+                    <td className="py-3 px-4 text-[#01295B]">{candidate.job_role_title}</td>
                     <td className={`py-3 px-4 font-medium ${getScoreColor(candidate.ats_score)}`}>
                       {candidate.ats_score}%
                     </td>

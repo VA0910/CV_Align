@@ -20,6 +20,7 @@ import ModifyJobRole from './pages/hiring_manager_dashboard/ModifyJobRole';
 import ViewJobRole from './pages/hiring_manager_dashboard/ViewJobRole';
 import ManageRecruiters from './pages/hiring_manager_dashboard/ManageRecruiters';
 import Feedback from './pages/shared/Feedback';
+import ViewFeedback from './pages/recruiter_dashboard/ViewFeedback';
 import CompanyCode from './pages/CompanyCode';
 import ContactUs from './pages/ContactUs';
 import ThankYou from './pages/ThankYou';
@@ -123,7 +124,7 @@ function App() {
               path="/recruiter/feedback/:candidateId"
               element={
                 <ProtectedRoute allowedRoles={['recruiter']}>
-                  <Feedback />
+                  <ViewFeedback />
                 </ProtectedRoute>
               }
             />

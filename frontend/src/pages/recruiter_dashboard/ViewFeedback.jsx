@@ -1,43 +1,110 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import RecruiterNavbar from '../../components/RecruiterNavbar';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 function ViewFeedback() {
-  // Mock feedback data - replace with actual API call later
-  const [feedback] = useState({
-    candidateName: "John Smith",
-    appliedFor: "Software Developer II",
-    score: "85%",
-    recentExperience: "Interned at Barclays",
-    education: "B.Tech in CSE, IITG",
-    strengths: [
-      "Strength 1",
-      "Strength 2",
-      "Strength 3"
-    ],
-    weaknesses: [
-      "Weakness 1",
-      "Weakness 2",
-      "Weakness 3"
-    ],
-    summaryPoints: [
-      "One liner feedback, summary type here",
-      "One liner feedback, summary type here",
-      "One liner feedback, summary type here",
-      "One liner feedback, summary type here",
-      "One liner feedback, summary type here"
-    ],
-    detailedFeedback: "Detailed analysis of the candidate's performance, skills, and potential fit for the role..."
-  });
-
+  const { candidateId } = useParams();
+  const navigate = useNavigate();
+  const { token } = useAuth();
+  const [candidate, setCandidate] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [status, setStatus] = useState('pending'); // 'pending', 'selected', 'rejected'
 
-  const handleSelect = () => {
-    setStatus(status === 'selected' ? 'pending' : 'selected');
+  useEffect(() => {
+    if (candidateId) {
+      fetchCandidateData();
+    }
+  }, [candidateId]);
+
+  const fetchCandidateData = async () => {
+    try {
+      const response = await axios.get(`http://localhost:8000/candidates/${candidateId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setCandidate(response.data);
+      setStatus(response.data.status || 'pending');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to fetch candidate data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleReject = () => {
-    setStatus(status === 'rejected' ? 'pending' : 'rejected');
+  const handleSelect = async () => {
+    try {
+      // Update candidate status in database
+      await axios.patch(`http://localhost:8000/candidates/${candidateId}/status`, {
+        status: status === 'selected' ? 'pending' : 'selected'
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setStatus(status === 'selected' ? 'pending' : 'selected');
+    } catch (err) {
+      setError('Failed to update candidate status');
+    }
   };
+
+  const handleReject = async () => {
+    try {
+      // Update candidate status in database
+      await axios.patch(`http://localhost:8000/candidates/${candidateId}/status`, {
+        status: status === 'rejected' ? 'pending' : 'rejected'
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setStatus(status === 'rejected' ? 'pending' : 'rejected');
+    } catch (err) {
+      setError('Failed to update candidate status');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <main className="px-36 py-8">
+          <div className="text-white text-center">Loading candidate data...</div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <main className="px-36 py-8">
+          <div className="text-red-400 text-center">{error}</div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!candidate) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <main className="px-36 py-8">
+          <div className="text-white text-center">Candidate not found</div>
+        </main>
+      </div>
+    );
+  }
+
+  // Parse feedback and detailed feedback into arrays
+  const feedbackPoints = candidate.feedback ? candidate.feedback.split('\n').filter(point => point.trim()) : [];
+  const detailedFeedbackPoints = candidate.detailed_feedback ? candidate.detailed_feedback.split('\n').filter(point => point.trim()) : [];
 
   return (
     <div className="min-h-screen bg-[#001F3F]">
@@ -51,7 +118,7 @@ function ViewFeedback() {
             {/* Candidate Name and Status */}
             <div className="flex items-center gap-4 mb-8">
               <h1 className="text-4xl font-bold text-white">
-                {feedback.candidateName}
+                {candidate.candidate_name}
               </h1>
               {status !== 'pending' && (
                 <div className={`inline-block rounded-full px-4 py-2 text-sm font-bold uppercase ${
@@ -69,24 +136,26 @@ function ViewFeedback() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-lg text-[#007180] font-medium mb-1">Applied For:</h3>
-                  <p className="text-[#01295B] font-roboto font-semibold">{feedback.appliedFor}</p>
+                  <p className="text-[#01295B] font-roboto font-semibold">{candidate.job_role_title}</p>
                   
-                  <h3 className="text-lg text-[#007180] font-medium mb-1 mt-4">Recent Experience:</h3>
-                  <p className="text-[#01295B] font-roboto font-semibold">{feedback.recentExperience}</p>
+                  <h3 className="text-lg text-[#007180] font-medium mb-1 mt-4">Score:</h3>
+                  <p className="text-[#01295B] font-roboto font-semibold">{candidate.ats_score}/100</p>
                 </div>
                 <div>
-                  <h3 className="text-lg text-[#007180] font-medium mb-1">Score:</h3>
-                    <p className="text-[#01295B] font-roboto font-semibold">{feedback.score}</p>
+                  <h3 className="text-lg text-[#007180] font-medium mb-1">Education:</h3>
+                  <p className="text-[#01295B] font-roboto font-semibold">
+                    {candidate.degree} in {candidate.course}
+                  </p>
                   
-                  <h3 className="text-lg text-[#007180] font-medium mb-1 mt-4">Education:</h3>
-                  <p className="text-[#01295B] font-roboto font-semibold">{feedback.education}</p>
+                  <h3 className="text-lg text-[#007180] font-medium mb-1 mt-4">CGPA:</h3>
+                  <p className="text-[#01295B] font-roboto font-semibold">{candidate.cgpa}</p>
                 </div>
               </div>
             </div>
 
             {/* Summary Points */}
             <div className="mb-8">
-              {feedback.summaryPoints.map((point, index) => (
+              {feedbackPoints.map((point, index) => (
                 <p key={index} className="text-white mb-3 opacity-90">
                   {point}
                 </p>
@@ -126,32 +195,50 @@ function ViewFeedback() {
                 <div className="pr-4">
                   <h2 className="text-2xl font-bold text-white mb-4">Strengths</h2>
                   <ul className="space-y-2">
-                    {feedback.strengths.map((strength, index) => (
-                      <li key={index} className="text-[#01295B] font-roboto font-semibold">
-                        {strength}
-                      </li>
-                    ))}
+                    {candidate.strengths && candidate.strengths.length > 0 ? (
+                      candidate.strengths.map((strength, index) => (
+                        <li key={index} className="text-[#01295B] font-roboto font-semibold">
+                          {strength}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-[#01295B] font-roboto font-semibold">No strengths identified</li>
+                    )}
                   </ul>
                 </div>
                 <div className="pl-4 border-l border-gray-500">
                   <h2 className="text-2xl font-bold text-white mb-4">Weaknesses</h2>
                   <ul className="space-y-2">
-                    {feedback.weaknesses.map((weakness, index) => (
-                      <li key={index} className="text-[#01295B] font-roboto font-semibold">
-                        {weakness}
-                      </li>
-                    ))}
+                    {candidate.weaknesses && candidate.weaknesses.length > 0 ? (
+                      candidate.weaknesses.map((weakness, index) => (
+                        <li key={index} className="text-[#01295B] font-roboto font-semibold">
+                          {weakness}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-[#01295B] font-roboto font-semibold">No weaknesses identified</li>
+                    )}
                   </ul>
                 </div>
               </div>
             </div>
 
             {/* Detailed Feedback */}
-            <div className="bg-gray-200/70 h-[300px] rounded-lg p-6">
+            <div className="bg-gray-200/70 h-[300px] rounded-lg p-6 overflow-y-auto">
               <h2 className="text-2xl font-bold text-white mb-4">Detailed Feedback</h2>
-              <p className="text-[#01295B] font-roboto font-semibold leading-relaxed">
-                {feedback.detailedFeedback}
-              </p>
+              {detailedFeedbackPoints.length > 0 ? (
+                <div className="space-y-2">
+                  {detailedFeedbackPoints.map((point, index) => (
+                    <p key={index} className="text-[#01295B] font-roboto font-semibold leading-relaxed">
+                      {point}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[#01295B] font-roboto font-semibold leading-relaxed">
+                  {candidate.detailed_feedback || 'No detailed feedback available'}
+                </p>
+              )}
             </div>
           </div>
         </div>

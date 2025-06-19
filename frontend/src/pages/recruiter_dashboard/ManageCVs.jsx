@@ -111,7 +111,7 @@ const ManageCVs = () => {
   const handleViewFeedback = (cv) => {
     console.log('Candidate data:', cv);
     console.log('Navigating to:', `/recruiter/feedback/${cv.id}`);
-    navigate(`/recruiter/feedback/${cv._id}`);
+    navigate(`/recruiter/feedback/${cv.id}`);
   };
 
   const filteredCVs = useMemo(() => {
@@ -244,7 +244,7 @@ const ManageCVs = () => {
                 </thead>
                 <tbody>
                   {filteredCVs.map((cv) => (
-                    <tr key={cv.id} className="border-t border-gray-400">
+                    <tr key={cv._id} className="border-t border-gray-400">
                       <td className="py-4">{cv.candidate_name}</td>
                       <td className="py-4">{cv.job_role_title}</td>
                       <td className="py-4">

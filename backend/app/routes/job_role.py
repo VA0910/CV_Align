@@ -173,4 +173,58 @@ async def update_job_role(
     if not result:
         raise HTTPException(status_code=404, detail="Job role not found")
     
-    return JobRoleResponse(**convert_id(result)) 
+    return JobRoleResponse(**convert_id(result))
+
+@router.get("/metrics/")
+async def get_recruiter_metrics(current_user: User = Depends(get_current_user)):
+    """Get recruiter-specific metrics"""
+    if current_user.role != "recruiter":
+        raise HTTPException(status_code=403, detail="Only recruiters can access metrics")
+    
+    try:
+        collection = db.get_collection("candidates")
+        
+        # Get all candidates for this recruiter
+        candidates = await collection.find({"recruiter_id": str(current_user.id)}).to_list(length=None)
+        
+        if not candidates:
+            return {
+                "mostAppliedRole": "No applications yet",
+                "avgFitScore": 0,
+                "totalCVs": 0,
+                "rejected": 0,
+                "shortlisted": 0
+            }
+        
+        # Calculate metrics
+        total_cvs = len(candidates)
+        
+        # Most applied role
+        role_counts = {}
+        for candidate in candidates:
+            role = candidate.get("job_role_title", "Unknown")
+            role_counts[role] = role_counts.get(role, 0) + 1
+        
+        most_applied_role = max(role_counts.items(), key=lambda x: x[1])[0] if role_counts else "No applications"
+        
+        # Average fit score
+        valid_scores = [c.get("ats_score", 0) for c in candidates if c.get("ats_score") is not None]
+        avg_fit_score = round(sum(valid_scores) / len(valid_scores), 1) if valid_scores else 0
+        
+        # Rejected count (status = "rejected")
+        rejected_count = len([c for c in candidates if c.get("status") == "rejected"])
+        
+        # Shortlisted count (status = "shortlisted" - recruiter's accuracy metric)
+        shortlisted_count = len([c for c in candidates if c.get("status") == "shortlisted"])
+        
+        return {
+            "mostAppliedRole": most_applied_role,
+            "avgFitScore": avg_fit_score,
+            "totalCVs": total_cvs,
+            "rejected": rejected_count,
+            "shortlisted": shortlisted_count
+        }
+        
+    except Exception as e:
+        logging.error(f"Error fetching recruiter metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch metrics: {str(e)}") 

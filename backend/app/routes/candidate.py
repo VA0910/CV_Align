@@ -10,18 +10,20 @@ import cloudinary
 import cloudinary.uploader
 import os
 import requests
-import tempfile
-import subprocess
-import json
 from dotenv import load_dotenv
 import logging
 from bson.objectid import ObjectId
+from app.utils.ai_forward import send_cv_to_ai_server
 
 # Load environment variables
 load_dotenv()
 
 router = APIRouter()
 db = Database()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Cloudinary config with proper error handling
 cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -37,70 +39,41 @@ cloudinary.config(
     api_secret=api_secret
 )
 
-# --- Helper: Call AI parser (rag.py) ---
+# --- Helper: Call AI parser (deployed API) ---
 async def parse_cv_with_ai(cv_url: str, job_description: str) -> dict:
-    """Parse a CV using the AI script."""
+    """Parse a CV using the deployed AI API."""
     try:
         # Download the CV from Cloudinary
         response = requests.get(cv_url)
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail="Failed to download CV from Cloudinary")
 
-        # Get file extension from URL
-        file_ext = os.path.splitext(cv_url)[1].lower()
-        if not file_ext:
-            # If no extension in URL, try to determine from content type
-            content_type = response.headers.get('content-type', '').lower()
-            if 'pdf' in content_type:
-                file_ext = '.pdf'
-            elif 'msword' in content_type or 'docx' in content_type:
-                file_ext = '.docx'
-            else:
-                raise HTTPException(status_code=400, detail="Unsupported file type")
-
-        # Create temporary file with correct extension
-        with tempfile.NamedTemporaryFile(suffix=file_ext, delete=False) as tmp:
-            tmp.write(response.content)
-            tmp_path = tmp.name
-
-        try:
-            # Call the AI script
-            result = subprocess.run(
-                ["python", "AI/rag.py", "--cv", tmp_path, "--job", job_description],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            
-            # Parse the output
-            output = result.stdout.strip()
-            if not output:
-                raise ValueError("AI script returned empty output")
-                
-            # Parse the structured output
-            parsed_result = parse_output(output)
-            
-            # Clean up temporary file
-            os.unlink(tmp_path)
-            
-            return parsed_result
-
-        except subprocess.CalledProcessError as e:
-            logger.error(f"AI script failed: {e.stderr}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"AI parsing failed: {e.stderr}"
-            )
-        finally:
-            # Ensure temporary file is cleaned up
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        # Use the deployed AI API (with local fallback)
+        logger.info(f"Calling AI service with CV URL: {cv_url} and job description length: {len(job_description)}")
+        
+        # Send CV file and job description to AI service
+        ai_result = send_cv_to_ai_server(response.content, job_description)
+        
+        logger.info(f"AI service response: {ai_result}")
+        
+        # The AI service should return the parsed result directly
+        if isinstance(ai_result, dict):
+            return ai_result
+        else:
+            # If the API returns a different format, try to parse it
+            logger.warning(f"Unexpected AI response format: {type(ai_result)}")
+            return {
+                "candidate_name": "Unknown",
+                "eligibility": "error",
+                "reason": f"Unexpected AI response format: {type(ai_result)}",
+                "ats_score": 0
+            }
 
     except Exception as e:
-        logger.error(f"Error parsing CV: {str(e)}")
+        logger.error(f"Error calling AI service: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to parse CV: {str(e)}"
+            detail=f"Failed to parse CV using AI service: {str(e)}"
         )
 
 @router.post("/candidates/upload", response_model=CandidateResponse)
@@ -192,22 +165,22 @@ async def upload_candidate_cv(
                     "recruiter_id": str(current_user.id),
                     "job_role_id": job_role_id,
                     "job_role_title": job_role["title"],
-                    "status": "uploaded",
+                    "status": "pending",
                     "created_at": datetime.utcnow(),
                 }
         except Exception as e:
             logging.error(f"AI parsing failed: {str(e)}")
             # If AI parsing fails, store with default values
             candidate_doc = {
-                "candidate_name": file.filename,
-                "degree": "Pending",
-                "course": "Pending",
-                "cgpa": "Pending",
+                "candidate_name": file.filename.split('.')[0],  # Use filename without extension
+                "degree": "Pending AI Analysis",
+                "course": "Pending AI Analysis", 
+                "cgpa": "Pending AI Analysis",
                 "ats_score": 0,
-                "strengths": [],
-                "weaknesses": [],
-                "feedback": "Pending AI analysis",
-                "detailed_feedback": "Pending AI analysis",
+                "strengths": ["AI analysis pending"],
+                "weaknesses": ["AI analysis pending"],
+                "feedback": f"AI analysis failed: {str(e)}. Please try again or contact support.",
+                "detailed_feedback": f"The CV was uploaded successfully but AI analysis failed with error: {str(e)}. This could be due to missing API keys, network issues, or unsupported file format. Please ensure all AI services are properly configured.",
                 "cv_url": cv_url,
                 "recruiter_id": str(current_user.id),
                 "job_role_id": job_role_id,
@@ -301,4 +274,74 @@ async def get_candidate(candidate_id: str, current_user: User = Depends(get_curr
     if current_user.role == "recruiter" and str(candidate["recruiter_id"]) != str(current_user.id):
         raise HTTPException(status_code=403, detail="You don't have permission to view this candidate")
     
-    return CandidateResponse(**convert_id(candidate)) 
+    return CandidateResponse(**convert_id(candidate))
+
+@router.patch("/{candidate_id}/status", response_model=CandidateResponse)
+async def update_candidate_status(
+    candidate_id: str, 
+    status_update: dict,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        object_id = ObjectId(candidate_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid candidate ID")
+    
+    if current_user.role != "recruiter":
+        raise HTTPException(status_code=403, detail="Only recruiters can update candidate status")
+    
+    new_status = status_update.get("status")
+    if new_status not in ["pending", "selected", "rejected", "shortlisted"]:
+        raise HTTPException(status_code=400, detail="Invalid status value")
+    
+    collection = db.get_collection("candidates")
+    candidate = await collection.find_one({"_id": object_id})
+    
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    # Check if user has permission to update this candidate
+    if str(candidate["recruiter_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="You don't have permission to update this candidate")
+    
+    # Update the status
+    result = await collection.update_one(
+        {"_id": object_id},
+        {"$set": {"status": new_status}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to update candidate status")
+    
+    # Return updated candidate
+    updated_candidate = await collection.find_one({"_id": object_id})
+    return CandidateResponse(**convert_id(updated_candidate))
+
+@router.delete("/{candidate_id}")
+async def delete_candidate(candidate_id: str, current_user: User = Depends(get_current_user)):
+    """Delete a candidate (only recruiters can delete their own candidates)"""
+    try:
+        object_id = ObjectId(candidate_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid candidate ID")
+    
+    if current_user.role != "recruiter":
+        raise HTTPException(status_code=403, detail="Only recruiters can delete candidates")
+    
+    collection = db.get_collection("candidates")
+    candidate = await collection.find_one({"_id": object_id})
+    
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    # Check if user has permission to delete this candidate
+    if str(candidate["recruiter_id"]) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this candidate")
+    
+    # Delete the candidate
+    result = await collection.delete_one({"_id": object_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=500, detail="Failed to delete candidate")
+    
+    return {"message": "Candidate deleted successfully"} 

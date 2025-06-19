@@ -52,12 +52,15 @@ function RecruiterDashboard() {
 
   const handleSelect = async (id) => {
     try {
-      await axios.post(`http://localhost:8000/candidates/${id}/select`, {}, {
+      await axios.patch(`http://localhost:8000/candidates/${id}/status`, {
+        status: 'selected'
+      }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       fetchCandidates(); // Refresh the candidates list
+      fetchMetrics(); // Refresh metrics
     } catch (error) {
       console.error('Error updating candidate status:', error);
     }
@@ -65,12 +68,15 @@ function RecruiterDashboard() {
 
   const handleReject = async (id) => {
     try {
-      await axios.post(`http://localhost:8000/candidates/${id}/reject`, {}, {
+      await axios.patch(`http://localhost:8000/candidates/${id}/status`, {
+        status: 'rejected'
+      }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       fetchCandidates(); // Refresh the candidates list
+      fetchMetrics(); // Refresh metrics
     } catch (error) {
       console.error('Error updating candidate status:', error);
     }
@@ -137,23 +143,27 @@ function RecruiterDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {candidates.slice(0, 5).map((candidate) => (
+                {candidates
+                  .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                  .slice(0, 5)
+                  .map((candidate) => (
                   <tr key={candidate._id} className="border-t border-gray-400">
                     <td className="py-4">{candidate.candidate_name}</td>
                     <td className="py-4">{candidate.job_role_title}</td>
                     <td className="py-4">
                       <span className={`px-3 py-1 rounded-full text-sm ${
-                        candidate.score >= 80 ? 'bg-green-100 text-green-800' :
-                        candidate.score >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                        candidate.ats_score >= 80 ? 'bg-green-100 text-green-800' :
+                        candidate.ats_score >= 50 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {candidate.score}%
+                        {candidate.ats_score}%
                       </span>
                     </td>
                     <td className="py-4">
                       <span className={`px-3 py-1 rounded-full text-sm ${
                         candidate.status === 'selected' ? 'bg-green-100 text-green-800' :
                         candidate.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        candidate.status === 'shortlisted' ? 'bg-blue-100 text-blue-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {candidate.status.charAt(0).toUpperCase() + candidate.status.slice(1)}
@@ -161,28 +171,29 @@ function RecruiterDashboard() {
                     </td>
                     <td className="py-4">
                       <div className="flex space-x-4">
-                        <button
-                          onClick={() => handleSelect(candidate._id)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                            candidate.status === 'selected'
-                              ? 'bg-green-500 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                          disabled={candidate.status === 'selected'}
-                        >
-                          Select
-                        </button>
-                        <button
-                          onClick={() => handleReject(candidate._id)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                            candidate.status === 'rejected'
-                              ? 'bg-red-500 text-white'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                          disabled={candidate.status === 'rejected'}
-                        >
-                          Reject
-                        </button>
+                        {candidate.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleSelect(candidate.id)}
+                              className="px-4 py-2 rounded-lg text-sm font-medium bg-green-500 text-white hover:bg-green-600"
+                            >
+                              Select
+                            </button>
+                            <button
+                              onClick={() => handleReject(candidate.id)}
+                              className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {(candidate.status === 'selected' || candidate.status === 'rejected' || candidate.status === 'shortlisted') && (
+                          <span className="text-gray-500 text-sm">
+                            {candidate.status === 'selected' ? 'Forwarded to Hiring Manager' :
+                             candidate.status === 'shortlisted' ? 'Approved by Hiring Manager' :
+                             'Rejected'}
+                          </span>
+                        )}
                       </div>
                     </td>
                   </tr>
