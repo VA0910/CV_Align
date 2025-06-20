@@ -41,13 +41,6 @@ GROQ_API_KEY=your_actual_groq_api_key
 GOOGLE_API_KEY=your_actual_google_api_key
 ```
 
-### 4. Test the Setup
-
-Run the test script to verify everything is working:
-```bash
-python test_rag.py
-```
-
 ## Troubleshooting
 
 ### Common Issues
