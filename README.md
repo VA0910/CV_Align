@@ -1,4 +1,4 @@
-<div align="center"> <img src="./frontend/public/vite.svg" alt="CV Align" width="200"/>
+
 CV Align - AI-Powered CV Evaluator
 Align your CV to job descriptions using intelligent, recruiter-style feedback
 
