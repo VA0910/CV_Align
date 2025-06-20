@@ -12,31 +12,31 @@ Job seekers optimizing their CVs for specific roles
 Recruiters screening applications efficiently
 Career coaches helping students or clients improve their profiles
 
-✨ Key Features
+# ✨ Key Features
 
-🔍 Smart CV Analysis
+# 🔍 Smart CV Analysis
 
-Upload your CV and a job description
-Get actionable, section-wise feedback (ATS-style)
-Match score, missing skills, role alignment, and improvement tips
+- Upload your CV and a job description
+- Get actionable, section-wise feedback (ATS-style)
+- Match score, missing skills, role alignment, and improvement tips
 
-🔒 Role-Based Access
+# 🔒 Role-Based Access
 
-Secure login for Recruiters, Applicants, and Admins
-Dashboards with personalized features
+- Secure login for Recruiters, Applicants, and Admins
+- Dashboards with personalized features
 
-🌐 Cloud Storage + Live Dashboard
+# 🌐 Cloud Storage + Live Dashboard
 
 Cloudinary integration for storing CVs
 Live dashboard to track and compare evaluations
 
-🧠 RAG-based Evaluation Pipeline
+# 🧠 RAG-based Evaluation Pipeline
 
 Uses a vector database (FAISS) to retrieve relevant job context
 Structured prompts for consistent, high-quality responses
 Multi-model integration (Groq, Google GenAI)
 
-🛠️ Tech Stack
+# 🛠️ Tech Stack
 
 Frontend
 Framework: React.js
@@ -55,7 +55,7 @@ AI Models: Groq API, Google Generative AI
 
 Embeddings: FAISS 
 
-📦 Installation
+# 📦 Installation
 Prerequisites
 Node.js (v14+), npm
 Python 3.9+ with pip
@@ -100,7 +100,7 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-5. AI CV Evaluation System Setup
+# AI CV Evaluation System Setup
 The AI logic for CV parsing and evaluation resides in the separate AI directory. It runs as a standalone FastAPI microservice that the main backend communicates with.
 
 Directory: AI/
@@ -157,7 +157,7 @@ Sends the uploaded CV and job description
 Receives structured feedback (skills, score, suggestions)
 Saves the result in MongoDB
 
-6. Run the Project
+# Run the Project
 
 Make sure the AI server is running.
 
@@ -172,7 +172,7 @@ cd frontend
 npm run dev
 ```
 
-How It Works
+# How It Works
 
 1️⃣ Upload CV & Job Description
 Upload your resume PDF and a job description in the recruiter dashboard.
