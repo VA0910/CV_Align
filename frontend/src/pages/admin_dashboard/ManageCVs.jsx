@@ -1,20 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import DashboardNavbar from '../../components/AdminNavbar';
 import CVFilters from '../../components/CVFilters';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ManageCVs = () => {
-  const [cvData, setCvData] = useState([
-    { id: 1, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter A', score: 95, status: 'active' },
-    { id: 2, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter B', score: 75, status: 'active' },
-    { id: 3, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter C', score: 25, status: 'active' },
-    { id: 4, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter D', score: 88, status: 'active' },
-    { id: 5, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter E', score: 65, status: 'active' },
-    { id: 6, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter F', score: 92, status: 'active' },
-    { id: 7, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter G', score: 45, status: 'active' },
-    { id: 8, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter', score: 78, status: 'active' },
-    { id: 9, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter', score: 91, status: 'active' },
-    { id: 10, fileName: 'cv_resume.pdf', uploadedBy: 'Recruiter', score: 28, status: 'active' },
-  ]);
+  const { token } = useAuth();
+  const [cvData, setCvData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [filters, setFilters] = useState({
     recruiter: '',
@@ -27,6 +20,31 @@ const ManageCVs = () => {
     key: null,
     direction: 'asc'
   });
+
+  useEffect(() => {
+    const fetchCVs = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('/candidates/company', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const text = await res.text();
+        console.log('Response:', text);
+        if (!res.ok) throw new Error(text);
+        const data = JSON.parse(text);
+        setCvData(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCVs();
+  }, [token]);
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -69,23 +87,10 @@ const ManageCVs = () => {
   const handleDelete = async (id) => {
     try {
       // TODO: Add API call to delete CV
-      // const response = await fetch(`/api/cvs/${id}`, {
-      //   method: 'DELETE',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     // Add any necessary authentication headers
-      //   }
-      // });
-      
-      // if (response.ok) {
-      //   setCvData(prevData => prevData.filter(cv => cv.id !== id));
-      // }
-
       // For now, just update the UI
-      setCvData(prevData => prevData.filter(cv => cv.id !== id));
+      setCvData(prevData => prevData.filter(cv => cv._id !== id && cv.id !== id));
     } catch (error) {
       console.error('Error deleting CV:', error);
-      // Handle error (show notification, etc.)
     }
   };
 
@@ -96,38 +101,33 @@ const ManageCVs = () => {
 
   const filteredCVs = useMemo(() => {
     let filtered = cvData.filter(cv => {
-      const recruiterMatch = cv.uploadedBy.toLowerCase().includes(filters.recruiter.toLowerCase()) || !filters.recruiter;
-      const fileNameMatch = cv.fileName.toLowerCase().includes(filters.fileName.toLowerCase()) || !filters.fileName;
-      const scoreMatch = isScoreInRange(cv.score, filters.scoreRange);
+      const recruiterMatch = cv.recruiter_id?.toLowerCase().includes(filters.recruiter.toLowerCase()) || !filters.recruiter;
+      const fileNameMatch = cv.cv_url?.toLowerCase().includes(filters.fileName.toLowerCase()) || !filters.fileName;
+      const scoreMatch = isScoreInRange(cv.ats_score || 0, filters.scoreRange);
       const statusMatch = cv.status === filters.status || !filters.status;
-
       return recruiterMatch && fileNameMatch && scoreMatch && statusMatch;
     });
-
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
-
         if (typeof aValue === 'string') {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
-
     return filtered;
   }, [cvData, filters, sortConfig]);
 
   const columns = [
     { key: 'id', label: 'S.No.', sortable: true },
-    { key: 'fileName', label: 'CVs', sortable: true },
-    { key: 'uploadedBy', label: 'Uploaded By', sortable: true },
-    { key: 'score', label: 'Score', sortable: true },
+    { key: 'cv_url', label: 'CVs', sortable: true },
+    { key: 'recruiter_id', label: 'Uploaded By', sortable: true },
+    { key: 'ats_score', label: 'Score', sortable: true },
     { key: 'feedback', label: 'Generated Feedback', sortable: false },
     { key: 'actions', label: '', sortable: false }
   ];
@@ -135,16 +135,18 @@ const ManageCVs = () => {
   return (
     <div className="min-h-screen bg-[#001F3F]">
       <DashboardNavbar />
-      
       <div className="px-36 py-6">
         <h1 className="text-4xl font-bold text-white mb-8">Manage CVs</h1>
-        
         <div className="bg-gray-300/80 rounded-lg p-6">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-[#01295B] mb-4">Filters:</h2>
             <CVFilters onFilterChange={handleFilterChange} />
           </div>
-
+          {loading ? (
+            <div className="text-center py-8">Loading CVs...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">{error}</div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -168,30 +170,28 @@ const ManageCVs = () => {
               <tbody>
                 {filteredCVs.map((cv, index) => (
                   <tr 
-                    key={cv.id}
+                    key={cv._id || cv.id}
                     className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors"
                   >
                     <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
                     <td className="py-3 px-4">
-                      <a href="#" className="text-[#01295B] hover:underline font-medium">
-                        {cv.fileName}
+                      <a href={cv.cv_url} target="_blank" rel="noopener noreferrer" className="text-[#01295B] hover:underline font-medium">
+                        {cv.cv_url?.split('/').pop() || 'CV'}
                       </a>
                     </td>
-                    <td className="py-3 px-4 text-[#01295B]">{cv.uploadedBy}</td>
-                    <td className={`py-3 px-4 font-medium ${getScoreColor(cv.score)}`}>
-                      {cv.score}%
-                    </td>
+                    <td className="py-3 px-4 text-[#01295B]">{cv.recruiter_id}</td>
+                    <td className={`py-3 px-4 font-medium ${getScoreColor(cv.ats_score || 0)}`}>{cv.ats_score || 0}%</td>
                     <td className="py-3 px-4">
                       <button
-                        onClick={() => handleViewFeedback(cv.id)}
-                        className="text-[#01295B] hover:underline font-medium"
+                        onClick={() => handleViewFeedback(cv.id || cv._id)}
+                        className="text-[#008B8B] hover:underline"
                       >
                         View Feedback
                       </button>
                     </td>
                     <td className="py-3 px-4">
                       <button
-                        onClick={() => handleDelete(cv.id)}
+                        onClick={() => handleDelete(cv._id || cv.id)}
                         className="px-4 py-1 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors"
                       >
                         Delete
@@ -202,6 +202,7 @@ const ManageCVs = () => {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     </div>

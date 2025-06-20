@@ -1,52 +1,17 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HiringManagerNavbar from '../../components/HiringManagerNavbar';
 import CVFilters from '../../components/CVFilters';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ManageCVs = () => {
   const navigate = useNavigate();
-  const [cvData] = useState([
-    { 
-      id: 1, 
-      fileName: 'cv_resume.pdf', 
-      position: 'Software Engineer', 
-      score: 95,
-      recruiter: 'Jinay Mehta',
-      status: 'Selected'
-    },
-    { 
-      id: 2, 
-      fileName: 'cv_resume.pdf', 
-      position: 'Product Manager', 
-      score: 75,
-      recruiter: 'Jinay Mehta',
-      status: 'Rejected'
-    },
-    { 
-      id: 3, 
-      fileName: 'cv_resume.pdf', 
-      position: 'UX Designer', 
-      score: 25,
-      recruiter: 'Jinay Mehta',
-      status: 'Selected'
-    },
-    { 
-      id: 4, 
-      fileName: 'cv_resume.pdf', 
-      position: 'Data Scientist', 
-      score: 88,
-      recruiter: 'Jinay Mehta',
-      status: 'Pending'
-    },
-    { 
-      id: 5, 
-      fileName: 'cv_resume.pdf', 
-      position: 'DevOps Engineer', 
-      score: 65,
-      recruiter: 'Jinay Mehta',
-      status: 'Pending'
-    },
-  ]);
+  const { token } = useAuth();
+  const [cvData, setCvData] = useState([]);
+  const [recruiters, setRecruiters] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [filters, setFilters] = useState({
     position: '',
@@ -60,6 +25,44 @@ const ManageCVs = () => {
     key: null,
     direction: 'asc'
   });
+
+  useEffect(() => {
+    fetchCVs();
+    fetchRecruiters();
+    // eslint-disable-next-line
+  }, [token]);
+
+  const fetchCVs = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('http://localhost:8000/candidates/company', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setCvData(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to fetch CVs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRecruiters = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/users/recruiters/', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      // Map recruiter id to name
+      const map = {};
+      response.data.forEach(r => { map[r.id] = r.full_name; });
+      setRecruiters(map);
+    } catch (err) {
+      // ignore recruiter error
+    }
+  };
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -84,10 +87,12 @@ const ManageCVs = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Selected':
+      case 'selected':
         return 'bg-green-200 text-green-800';
-      case 'Rejected':
+      case 'rejected':
         return 'bg-red-200 text-red-800';
+      case 'shortlisted':
+        return 'bg-blue-200 text-blue-800';
       default:
         return 'bg-yellow-200 text-yellow-800';
     }
@@ -111,60 +116,67 @@ const ManageCVs = () => {
   };
 
   const handleViewFeedback = (id) => {
-    // Navigate to the feedback page
-    const cv = cvData.find(cv => cv.id === id);
-    if (cv) {
-      navigate(`/hiring-manager/feedback/${encodeURIComponent(cv.fileName.replace('.pdf', ''))}`);
+    navigate(`/hiring-manager/feedback/${id}`);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this CV?')) return;
+    try {
+      await axios.delete(`http://localhost:8000/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      fetchCVs();
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to delete CV');
     }
   };
 
   const filteredCVs = useMemo(() => {
     let filtered = cvData.filter(cv => {
-      const positionMatch = cv.position.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
-      const fileNameMatch = cv.fileName.toLowerCase().includes(filters.fileName.toLowerCase()) || !filters.fileName;
-      const scoreMatch = isScoreInRange(cv.score, filters.scoreRange);
-      const recruiterMatch = cv.recruiter.toLowerCase().includes(filters.recruiter.toLowerCase()) || !filters.recruiter;
-      const statusMatch = !filters.status || cv.status.toLowerCase() === filters.status.toLowerCase();
-
+      const positionMatch = cv.job_role_title?.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
+      const fileNameMatch = cv.candidate_name?.toLowerCase().includes(filters.fileName.toLowerCase()) || !filters.fileName;
+      const scoreMatch = isScoreInRange(cv.ats_score, filters.scoreRange);
+      const recruiterMatch = recruiters[cv.recruiter_id]?.toLowerCase().includes(filters.recruiter.toLowerCase()) || !filters.recruiter;
+      const statusMatch = !filters.status || cv.status?.toLowerCase() === filters.status.toLowerCase();
       return positionMatch && fileNameMatch && scoreMatch && recruiterMatch && statusMatch;
     });
-
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
-
         if (typeof aValue === 'string') {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
-
         if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
-
     return filtered;
-  }, [cvData, filters, sortConfig]);
+  }, [cvData, filters, sortConfig, recruiters]);
 
   const columns = [
-    { key: 'id', label: 'S.No.', sortable: true },
-    { key: 'fileName', label: 'CVs', sortable: true },
-    { key: 'position', label: 'Position', sortable: true },
-    { key: 'recruiter', label: 'Recruiter', sortable: true },
-    { key: 'score', label: 'Score', sortable: true },
+    { key: 'candidate_name', label: 'Candidate Name', sortable: true },
+    { key: 'job_role_title', label: 'Position', sortable: true },
+    { key: 'recruiter_id', label: 'Recruiter', sortable: true },
+    { key: 'ats_score', label: 'Score', sortable: true },
     { key: 'status', label: 'Status', sortable: true },
-    { key: 'feedback', label: 'Generated Feedback', sortable: false }
+    { key: 'cv_url', label: 'View CV', sortable: false },
+    { key: 'view_feedback', label: 'View Feedback', sortable: false },
+    { key: 'actions', label: 'Actions', sortable: false }
   ];
+
+  if (loading) return <div className="min-h-screen bg-[#001F3F]"><HiringManagerNavbar /><div className="px-36 py-6 text-white">Loading...</div></div>;
+  if (error) return <div className="min-h-screen bg-[#001F3F]"><HiringManagerNavbar /><div className="px-36 py-6 text-red-500">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-[#001F3F]">
       <HiringManagerNavbar />
-      
       <div className="px-36 py-6">
         <h1 className="text-4xl font-bold text-white mb-8">Manage CVs</h1>
-        
         <div className="bg-gray-300/80 rounded-lg p-6">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-[#01295B] mb-4">Filters:</h2>
@@ -247,56 +259,37 @@ const ManageCVs = () => {
               </div>
             </div>
           </div>
-
-          <div className="overflow-x-auto">
+          <div className="bg-gray-100/90 rounded-lg overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-400">
-                  {columns.map(column => (
-                    <th 
-                      key={column.key}
-                      className={`py-3 px-4 text-left text-[#008B8B] font-medium ${
-                        column.sortable ? 'cursor-pointer hover:text-[#006d6d]' : ''
-                      }`}
-                      onClick={() => column.sortable && handleSort(column.key)}
-                    >
-                      <div className="flex items-center">
-                        {column.label}
-                        {column.sortable && <SortIndicator column={column.key} />}
-                      </div>
+                <tr>
+                  {columns.map(col => (
+                    <th key={col.key} className="py-3 px-4 text-[#008B8B] font-medium cursor-pointer" onClick={() => col.sortable && handleSort(col.key)}>
+                      {col.label} {col.sortable && <SortIndicator column={col.key} />}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredCVs.map((cv, index) => (
-                  <tr 
-                    key={cv.id}
-                    className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
+                {filteredCVs.map((cv, idx) => (
+                  <tr key={cv.id || cv._id} className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors">
+                    <td className="py-3 px-4 text-[#01295B] font-semibold">{cv.candidate_name}</td>
+                    <td className="py-3 px-4 text-[#01295B]">{cv.job_role_title}</td>
+                    <td className="py-3 px-4 text-[#01295B]">{recruiters[cv.recruiter_id] || cv.recruiter_id}</td>
+                    <td className={`py-3 px-4 font-semibold ${getScoreColor(cv.ats_score)}`}>{cv.ats_score}</td>
+                    <td className={`py-3 px-4`}><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(cv.status)}`}>{cv.status}</span></td>
                     <td className="py-3 px-4">
-                      <a href="#" className="text-[#01295B] hover:underline font-medium">
-                        {cv.fileName}
-                      </a>
-                    </td>
-                    <td className="py-3 px-4 text-[#01295B]">{cv.position}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{cv.recruiter}</td>
-                    <td className={`py-3 px-4 font-medium ${getScoreColor(cv.score)}`}>
-                      {cv.score}%
+                      {cv.cv_url ? (
+                        <a href={cv.cv_url} target="_blank" rel="noopener noreferrer" className="text-[#008B8B] hover:underline">View CV</a>
+                      ) : (
+                        <span className="text-gray-400">No CV</span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(cv.status)}`}>
-                        {cv.status}
-                      </span>
+                      <button onClick={() => handleViewFeedback(cv.id || cv._id)} className="text-[#008B8B] hover:underline">View Feedback</button>
                     </td>
                     <td className="py-3 px-4">
-                      <button
-                        onClick={() => handleViewFeedback(cv.id)}
-                        className="text-[#01295B] hover:underline font-medium"
-                      >
-                        View Feedback
-                      </button>
+                      <button onClick={() => handleDelete(cv.id)} className="text-red-600 hover:underline">Delete</button>
                     </td>
                   </tr>
                 ))}

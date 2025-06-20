@@ -13,7 +13,7 @@ const ManageRecruiters = () => {
   useEffect(() => {
     const fetchRecruiters = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/recruiters/', {
+        const response = await axios.get('http://localhost:8000/users/recruiters/', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         setRecruiters(Array.isArray(response.data) ? response.data : []);
@@ -51,6 +51,20 @@ const ManageRecruiters = () => {
     }));
   };
 
+  const handleDeleteRecruiter = async (recruiterId) => {
+    if (window.confirm('Are you sure you want to delete this recruiter? This action cannot be undone.')) {
+        try {
+            await axios.delete(`http://localhost:8000/users/recruiters/${recruiterId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            // Refresh the list after deletion
+            setRecruiters(prev => prev.filter(r => (r.id || r._id) !== recruiterId));
+        } catch (err) {
+            setError(err.response?.data?.detail || 'Failed to delete recruiter');
+        }
+    }
+  };
+
   const handleStatusToggle = (id) => {
     setRecruiters(prev =>
       prev.map(recruiter =>
@@ -72,7 +86,7 @@ const ManageRecruiters = () => {
     if (!Array.isArray(recruiters)) return [];
     let result = recruiters.filter(recruiter => {
       const nameMatch = recruiter.full_name?.toLowerCase().includes(filters.name.toLowerCase()) || !filters.name;
-      const statusMatch = filters.status === 'All Status' || recruiter.status === filters.status;
+      const statusMatch = filters.status === 'All Status' || (filters.status === 'Active' && recruiter.is_active) || (filters.status === 'Inactive' && !recruiter.is_active);
       return nameMatch && statusMatch;
     });
 
@@ -173,9 +187,9 @@ const ManageRecruiters = () => {
                   </th>
                   <th 
                     className="py-3 px-4 text-left text-[#008B8B] font-medium cursor-pointer hover:text-[#006d6d]"
-                    onClick={() => handleSort('status')}
+                    onClick={() => handleSort('is_active')}
                   >
-                    Status <SortIndicator column="status" />
+                    Status <SortIndicator column="is_active" />
                   </th>
                   <th className="py-3 px-4 text-left text-[#008B8B] font-medium">Actions</th>
                 </tr>
@@ -183,7 +197,7 @@ const ManageRecruiters = () => {
               <tbody>
                 {filteredAndSortedRecruiters.map((recruiter, index) => (
                   <tr 
-                    key={recruiter.id}
+                    key={recruiter.id || recruiter._id}
                     className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors"
                   >
                     <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
@@ -194,23 +208,19 @@ const ManageRecruiters = () => {
                     <td className="py-3 px-4 text-[#01295B]">{recruiter.accuracy}</td>
                     <td className="py-3 px-4">
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        recruiter.status === 'Active'
+                        recruiter.is_active 
                           ? 'bg-green-200 text-green-800'
                           : 'bg-red-200 text-red-800'
                       }`}>
-                        {recruiter.status}
+                        {recruiter.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="py-3 px-4">
                       <button
-                        onClick={() => handleStatusToggle(recruiter.id)}
-                        className={`px-4 py-1 rounded-full text-sm font-medium ${
-                          recruiter.status === 'Active'
-                            ? 'bg-red-500 text-white hover:bg-red-600'
-                            : 'bg-green-500 text-white hover:bg-green-600'
-                        } transition-colors`}
+                        onClick={() => handleDeleteRecruiter(recruiter.id || recruiter._id)}
+                        className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
                       >
-                        {recruiter.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        Delete
                       </button>
                     </td>
                   </tr>

@@ -20,13 +20,13 @@ import ModifyJobRole from './pages/hiring_manager_dashboard/ModifyJobRole';
 import ViewJobRole from './pages/hiring_manager_dashboard/ViewJobRole';
 import ManageRecruiters from './pages/hiring_manager_dashboard/ManageRecruiters';
 import Feedback from './pages/shared/Feedback';
-import ViewFeedback from './pages/recruiter_dashboard/ViewFeedback';
 import CompanyCode from './pages/CompanyCode';
 import ContactUs from './pages/ContactUs';
 import ThankYou from './pages/ThankYou';
 import UploadCV from './pages/recruiter_dashboard/UploadCV';
 import FinalListing from './pages/hiring_manager_dashboard/FinalListing';
 import JobRoleDetails from './pages/hiring_manager_dashboard/JobRoleDetails';
+import DisabledPage from './pages/DisabledPage';
 
 function App() {
   return (
@@ -42,6 +42,7 @@ function App() {
             <Route path="/company-code" element={<CompanyCode />} />
             <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/thank-you" element={<ThankYou />} />
+            <Route path="/disabled" element={<DisabledPage />} />
 
             {/* Protected routes */}
             <Route
@@ -87,7 +88,7 @@ function App() {
               }
             />
             <Route
-              path="/admin/feedback/:candidateName"
+              path="/admin/feedback/:candidateId"
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <Feedback />
@@ -124,7 +125,7 @@ function App() {
               path="/recruiter/feedback/:candidateId"
               element={
                 <ProtectedRoute allowedRoles={['recruiter']}>
-                  <ViewFeedback />
+                  <Feedback />
                 </ProtectedRoute>
               }
             />
@@ -155,7 +156,7 @@ function App() {
               }
             />
             <Route
-              path="/hiring-manager/feedback/:candidateName"
+              path="/hiring-manager/feedback/:candidateId"
               element={
                 <ProtectedRoute allowedRoles={['hiring_manager']}>
                   <Feedback />

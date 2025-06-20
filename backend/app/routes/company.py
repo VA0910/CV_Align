@@ -16,10 +16,10 @@ async def register_company(company: CompanyCreate, db=Depends(get_database)):
         existing = await db.companies.find_one({"website": company.website})
         if existing:
             logging.warning(f"Company with website {company.website} already exists")
-            return {
-                "status": "error",
-                "message": f"A company with the website {company.website} is already registered. Please use a different website or contact support if this is your company."
-            }
+            raise HTTPException(
+                status_code=400,
+                detail=f"A company with the website {company.website} is already registered. Please use a different website or contact support if this is your company."
+            )
 
         # Generate unique code
         code = generate_unique_code()
@@ -50,22 +50,18 @@ async def register_company(company: CompanyCreate, db=Depends(get_database)):
         
         if not created_company:
             logging.error("Failed to retrieve created company after insertion")
-            return {
-                "status": "error",
-                "message": "Failed to create company. Please try again or contact support."
-            }
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create company. Please try again or contact support."
+            )
         
         # Convert ObjectId to string for response
         created_company["id"] = str(created_company["_id"])
         
-        return {
-            "status": "success",
-            "message": "Company registered successfully",
-            "data": CompanyResponse(**created_company)
-        }
+        return CompanyResponse(**created_company)
     except Exception as e:
         logging.error(f"Error in register_company: {str(e)}", exc_info=True)
-        return {
-            "status": "error",
-            "message": "An unexpected error occurred. Please try again or contact support."
-        } 
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred. Please try again or contact support."
+        ) 

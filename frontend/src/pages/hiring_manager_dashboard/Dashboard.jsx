@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import HiringManagerNavbar from '../../components/HiringManagerNavbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,12 +13,21 @@ function HiringManagerDashboard() {
     mostAppliedRole: "Loading...",
     avgFitScore: "Loading...",
     totalCandidates: "Loading...",
-    topSkills: ["Loading..."],
+    topRecruiter: "Loading...",
     lowestShortlisting: "Loading..."
   });
   const [recruiters, setRecruiters] = useState([]);
   const [allJobRoles, setAllJobRoles] = useState([]);
   const [candidates, setCandidates] = useState([]);
+
+  // Add a recruiterId-to-name map
+  const recruiterIdToName = useMemo(() => {
+    const map = {};
+    recruiters.forEach(r => {
+      map[r.id || r._id] = r.full_name;
+    });
+    return map;
+  }, [recruiters]);
 
   useEffect(() => {
     fetchTopJobRoles();
@@ -63,7 +72,7 @@ function HiringManagerDashboard() {
 
   const fetchRecruiters = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/recruiters/top', {
+      const response = await axios.get('http://localhost:8000/users/recruiters/top', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -121,7 +130,7 @@ function HiringManagerDashboard() {
 
   const fetchCandidates = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/candidates/', {
+      const response = await axios.get('http://localhost:8000/candidates/company', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -132,31 +141,38 @@ function HiringManagerDashboard() {
     }
   };
 
-  const handleShortlist = async (candidateId) => {
+  const handleShortlist = async (id) => {
     try {
-      await axios.post(`http://localhost:8000/candidates/${candidateId}/shortlist`, {}, {
+      await axios.patch(`http://localhost:8000/${id}/status`, {
+        status: 'shortlisted'
+      }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       fetchCandidates(); // Refresh the candidates list
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to shortlist candidate');
+      fetchMetrics(); // Refresh metrics
+    } catch (error) {
+      console.error('Error updating candidate status:', error);
     }
   };
 
-  const handleReject = async (candidateId) => {
+  const handleReject = async (id) => {
     try {
-      await axios.post(`http://localhost:8000/candidates/${candidateId}/reject`, {}, {
+      await axios.patch(`http://localhost:8000/${id}/status`, {
+        status: 'rejected'
+      }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
       fetchCandidates(); // Refresh the candidates list
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to reject candidate');
+      fetchMetrics(); // Refresh metrics
+    } catch (error) {
+      console.error('Error updating candidate status:', error);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#001F3F]">
@@ -196,10 +212,10 @@ function HiringManagerDashboard() {
             <p className="text-[#008B8B] text-xl font-medium">{metrics.totalCandidates}</p>
           </div>
 
-          {/* Top Skills */}
+          {/* Top Recruiter */}
           <div className="bg-gray-300/80 rounded-lg p-6">
-            <h2 className="text-[#01295B] font-bold mb-4">TOP SKILLS</h2>
-            <p className="text-[#008B8B] text-xl font-medium">{metrics.topSkills.join(", ")}</p>
+            <h2 className="text-[#01295B] font-bold mb-4">TOP RECRUITER</h2>
+            <p className="text-[#008B8B] text-xl font-medium">{metrics.topRecruiter}</p>
           </div>
 
           {/* Lowest Shortlistings */}
@@ -329,7 +345,6 @@ function HiringManagerDashboard() {
         {/* Candidate Summary Section */}
         <div className="bg-gray-300/80 rounded-lg p-6 mb-8">
           <h2 className="text-2xl font-bold text-[#01295B] mb-6">CANDIDATE SUMMARY</h2>
-          
           <div className="bg-gray-100/90 rounded-lg overflow-hidden">
             <table className="w-full">
               <thead>
@@ -338,76 +353,60 @@ function HiringManagerDashboard() {
                   <th className="text-left py-3 px-4 text-[#008B8B] font-medium">Role Applied for</th>
                   <th className="text-left py-3 px-4 text-[#008B8B] font-medium">Score</th>
                   <th className="text-left py-3 px-4 text-[#008B8B] font-medium">Recruiter</th>
-                  <th className="text-left py-3 px-4 text-[#008B8B] font-medium">Recruiter Decision</th>
                   <th className="text-left py-3 px-4 text-[#008B8B] font-medium">Status</th>
                   <th className="text-left py-3 px-4 text-[#008B8B] font-medium">View Feedback</th>
                   <th className="text-left py-3 px-4 text-[#008B8B] font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {candidates.map((candidate, index) => (
-                  <tr key={index} className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors">
-                    <td className="py-3 px-4 text-[#01295B] font-semibold">{candidate.name}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{candidate.role}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{candidate.score}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{candidate.recruiter}</td>
-                    <td className="py-3 px-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        candidate.recruiterStatus === "Selected" 
-                          ? "bg-green-200 text-green-800"
-                          : "bg-red-200 text-red-800"
-                      }`}>
-                        {candidate.recruiterStatus}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        candidate.status === "Shortlisted"
-                          ? "bg-blue-200 text-blue-800"
-                          : candidate.status === "Rejected"
-                          ? "bg-red-200 text-red-800"
-                          : "bg-yellow-200 text-yellow-800"
-                      }`}>
-                        {candidate.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Link 
-                        to={`/hiring-manager/feedback/${candidate.id}`}
-                        className="text-[#01295B] hover:underline hover:font-semibold"
-                      >
-                        View Feedback
-                      </Link>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                        {candidate.recruiterStatus === "Selected" && !candidate.isShortlisted && candidate.status !== "Rejected" && (
+                {[...candidates]
+                  .filter(candidate => candidate.status === "selected" || candidate.status === "shortlisted")
+                  .sort((a, b) => (b.ats_score || 0) - (a.ats_score || 0))
+                  .map((candidate, index) => (
+                    <tr key={candidate._id || index} className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors">
+                      <td className="py-3 px-4 text-[#01295B] font-semibold">{candidate.candidate_name}</td>
+                      <td className="py-3 px-4 text-[#01295B]">{candidate.job_role_title}</td>
+                      <td className="py-3 px-4 text-[#01295B]">{candidate.ats_score || 0}%</td>
+                      <td className="py-3 px-4 text-[#01295B]">{recruiterIdToName[candidate.recruiter_id] || candidate.recruiter_id}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          candidate.status === "shortlisted"
+                            ? "bg-blue-200 text-blue-800"
+                            : candidate.status === "rejected"
+                            ? "bg-red-200 text-red-800"
+                            : "bg-yellow-200 text-yellow-800"
+                        }`}>
+                          {candidate.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Link 
+                          to={`/hiring-manager/feedback/${candidate._id || candidate.id}`}
+                          className="text-[#01295B] hover:underline hover:font-semibold"
+                        >
+                          View Feedback
+                        </Link>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center space-x-3">
                           <button
-                            onClick={() => handleShortlist(candidate.id)}
+                            onClick={() => handleShortlist(candidate._id || candidate.id)}
                             className="px-4 py-1 rounded-full text-sm font-medium bg-[#008B8B] text-white hover:bg-[#007a7a] transition-colors"
                           >
                             Shortlist
                           </button>
-                        )}
-                        {!candidate.isShortlisted && candidate.status !== "Rejected" && (
                           <button
-                            onClick={() => handleReject(candidate.id)}
+                            onClick={() => handleReject(candidate._id || candidate.id)}
                             className="px-4 py-1 rounded-full text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors"
                           >
                             Reject
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
-          </div>
-          <div className="mt-4 text-right">
-            <Link to="/hiring-manager/final-listing" className="text-[#008B8B] hover:underline hover:font-semibold">
-              View Shortlisted Candidates
-            </Link>
           </div>
         </div>
       </main>

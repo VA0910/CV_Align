@@ -9,7 +9,11 @@ export default function ProtectedRoute({ children, allowedRoles = [] }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/signin" />;
+  }
+
+  if (user && !user.is_active) {
+    return <Navigate to="/disabled" />;
   }
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {

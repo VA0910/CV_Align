@@ -176,17 +176,11 @@ async def update_job_role(
     return JobRoleResponse(**convert_id(result))
 
 @router.get("/metrics/")
-async def get_recruiter_metrics(current_user: User = Depends(get_current_user)):
-    """Get recruiter-specific metrics"""
-    if current_user.role != "recruiter":
-        raise HTTPException(status_code=403, detail="Only recruiters can access metrics")
-    
-    try:
+async def get_metrics(current_user: User = Depends(get_current_user)):
+    if current_user.role == "recruiter":
+        # Recruiter metrics (existing logic)
         collection = db.get_collection("candidates")
-        
-        # Get all candidates for this recruiter
         candidates = await collection.find({"recruiter_id": str(current_user.id)}).to_list(length=None)
-        
         if not candidates:
             return {
                 "mostAppliedRole": "No applications yet",
@@ -195,28 +189,16 @@ async def get_recruiter_metrics(current_user: User = Depends(get_current_user)):
                 "rejected": 0,
                 "shortlisted": 0
             }
-        
-        # Calculate metrics
         total_cvs = len(candidates)
-        
-        # Most applied role
         role_counts = {}
         for candidate in candidates:
             role = candidate.get("job_role_title", "Unknown")
             role_counts[role] = role_counts.get(role, 0) + 1
-        
         most_applied_role = max(role_counts.items(), key=lambda x: x[1])[0] if role_counts else "No applications"
-        
-        # Average fit score
         valid_scores = [c.get("ats_score", 0) for c in candidates if c.get("ats_score") is not None]
         avg_fit_score = round(sum(valid_scores) / len(valid_scores), 1) if valid_scores else 0
-        
-        # Rejected count (status = "rejected")
         rejected_count = len([c for c in candidates if c.get("status") == "rejected"])
-        
-        # Shortlisted count (status = "shortlisted" - recruiter's accuracy metric)
         shortlisted_count = len([c for c in candidates if c.get("status") == "shortlisted"])
-        
         return {
             "mostAppliedRole": most_applied_role,
             "avgFitScore": avg_fit_score,
@@ -224,7 +206,64 @@ async def get_recruiter_metrics(current_user: User = Depends(get_current_user)):
             "rejected": rejected_count,
             "shortlisted": shortlisted_count
         }
-        
-    except Exception as e:
-        logging.error(f"Error fetching recruiter metrics: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch metrics: {str(e)}") 
+    elif current_user.role == "hiring_manager":
+        # Hiring manager metrics
+        candidates_collection = db.get_collection("candidates")
+        job_roles_collection = db.get_collection("job_roles")
+        users_collection = db.get_collection("users")
+        # Get all job roles for this company
+        job_roles = await job_roles_collection.find({"company_id": current_user.company_code}).to_list(length=None)
+        job_role_ids = [str(jr["_id"]) for jr in job_roles]
+        # Get all candidates for these job roles
+        candidates = await candidates_collection.find({"job_role_id": {"$in": job_role_ids}}).to_list(length=None)
+        if not candidates:
+            return {
+                "mostAppliedRole": "No applications yet",
+                "avgFitScore": 0,
+                "totalCandidates": 0,
+                "topRecruiter": "N/A",
+                "lowestShortlisting": "N/A"
+            }
+        # Most applied job role
+        role_counts = {}
+        for candidate in candidates:
+            role = candidate.get("job_role_title", "Unknown")
+            role_counts[role] = role_counts.get(role, 0) + 1
+        most_applied_role = max(role_counts.items(), key=lambda x: x[1])[0] if role_counts else "No applications"
+        # Average fit score
+        valid_scores = [c.get("ats_score", 0) for c in candidates if c.get("ats_score") is not None]
+        avg_fit_score = round(sum(valid_scores) / len(valid_scores), 1) if valid_scores else 0
+        # Total candidates
+        total_candidates = len(candidates)
+        # Top recruiter (highest accuracy from user model)
+        recruiters = await users_collection.find({"role": "recruiter", "company_code": current_user.company_code}).to_list(length=None)
+        from app.routes.users import add_recruiter_stats
+        recruiters_with_stats = [add_recruiter_stats(convert_id(r)) for r in recruiters]
+        if recruiters_with_stats:
+            top_recruiter_obj = max(recruiters_with_stats, key=lambda r: r.get("accuracy", 0))
+            top_recruiter = f"{top_recruiter_obj.get('full_name', 'N/A')} ({top_recruiter_obj.get('accuracy', 0)}%)"
+        else:
+            top_recruiter = "N/A"
+        # Lowest shortlisting rate (job role with lowest % of shortlisted candidates)
+        shortlist_rates = {}
+        for job_role in job_roles:
+            role_id = str(job_role["_id"])
+            role_candidates = [c for c in candidates if c.get("job_role_id") == role_id]
+            if not role_candidates:
+                continue
+            shortlisted = len([c for c in role_candidates if c.get("status") == "shortlisted"])
+            rate = shortlisted / len(role_candidates)
+            shortlist_rates[job_role.get("title", "Unknown")] = rate
+        if shortlist_rates:
+            lowest_shortlisting = min(shortlist_rates.items(), key=lambda x: x[1])[0]
+        else:
+            lowest_shortlisting = "N/A"
+        return {
+            "mostAppliedRole": most_applied_role,
+            "avgFitScore": avg_fit_score,
+            "totalCandidates": total_candidates,
+            "topRecruiter": top_recruiter,
+            "lowestShortlisting": lowest_shortlisting
+        }
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized") 

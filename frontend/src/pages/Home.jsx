@@ -12,17 +12,17 @@ function Home() {
 
       <div className="text-center py-6 px-36">
         <h1 className="text-5xl font-bold">CV ALIGN</h1>
-        <p className="text-teal-300 text-xl mt-4">tagline - one liner on the company</p>
+        <p className="text-teal-300 text-xl mt-4">Align your CV to job descriptions using intelligent, recruiter-style feedback</p>
         <p className="text-gray-300 max-w-3xl mx-auto mt-2 leading-relaxed">
-           descriptionSome descriptionSome description
+        CV Align is a smart, AI-driven CV evaluation platform that analyzes your resume against job descriptions and delivers detailed, structured feedback. Leveraging modern Retrieval-Augmented Generation (RAG) pipelines and GenAI models, it mimics the decision-making process of Applicant Tracking Systems (ATS) and human recruiters.
         </p>
 
         <div className="flex flex-col md:flex-row justify-center gap-8 mt-8">
-          <FeatureCard title="FEATURE 1" hoverType="color" />
+          <FeatureCard title="Smart CV Analysis" hoverType="color" />
           <div className="mt-16 md:mt-8">
-            <FeatureCard title="FEATURE 2" hoverType="opacity" />
+            <FeatureCard title="Cloud Storage + Live Dashboard" hoverType="color" />
           </div>
-          <FeatureCard title="FEATURE 3" hoverType="opacity" />
+          <FeatureCard title="RAG-based Evaluation Pipeline" hoverType="color" />
         </div>
 
         <div className="flex flex-wrap justify-center gap-4 mt-8">

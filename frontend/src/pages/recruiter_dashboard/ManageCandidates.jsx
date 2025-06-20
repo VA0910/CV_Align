@@ -2,12 +2,14 @@ import React, { useState, useMemo, useEffect } from 'react';
 import RecruiterNavbar from '../../components/RecruiterNavbar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const ManageCandidates = () => {
   const { token } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [candidates, setCandidates] = useState([]);
+  const navigate = useNavigate();
 
   const [filters, setFilters] = useState({
     name: '',
@@ -27,7 +29,7 @@ const ManageCandidates = () => {
 
   const fetchCandidates = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/candidates/recruiter', {
+      const response = await axios.get('http://localhost:8000/recruiter', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -79,7 +81,7 @@ const ManageCandidates = () => {
 
   const handleSelect = async (id) => {
     try {
-      await axios.post(`http://localhost:8000/candidates/${id}/select`, {}, {
+      await axios.patch(`http://localhost:8000/${id}/status`, { status: 'selected' }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -92,7 +94,7 @@ const ManageCandidates = () => {
 
   const handleReject = async (id) => {
     try {
-      await axios.post(`http://localhost:8000/candidates/${id}/reject`, {}, {
+      await axios.patch(`http://localhost:8000/${id}/status`, { status: 'rejected' }, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -235,9 +237,10 @@ const ManageCandidates = () => {
                   onChange={(e) => handleFilterChange('status', e.target.value)}
                 >
                   <option value="">All Status</option>
-                  <option value="uploaded">Uploaded</option>
+                  <option value="pending">Pending</option>
                   <option value="selected">Selected</option>
                   <option value="rejected">Rejected</option>
+                  <option value="shortlisted">Shortlisted</option>
                 </select>
               </div>
             </div>
@@ -277,7 +280,7 @@ const ManageCandidates = () => {
                     </td>
                     <td className="py-3 px-4">
                       <a 
-                        href={`/recruiter/feedback/${candidate.id}`}
+                        onClick={() => navigate(`/recruiter/feedback/${candidate.id || candidate._id}`)}
                         className="text-[#01295B] hover:underline hover:font-semibold"
                       >
                         View Feedback
@@ -285,26 +288,32 @@ const ManageCandidates = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => handleSelect(candidate.id)}
-                          className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
-                            candidate.status === 'selected'
-                              ? 'bg-green-500 text-white hover:bg-green-600'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          Select
-                        </button>
-                        <button
-                          onClick={() => handleReject(candidate.id)}
-                          className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
-                            candidate.status === 'rejected'
-                              ? 'bg-red-500 text-white hover:bg-red-600'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          Reject
-                        </button>
+                        {candidate.status === 'shortlisted' ? (
+                          <span className="px-4 py-1 rounded-full text-sm font-semibold bg-blue-500 text-white">Shortlisted</span>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleSelect(candidate.id)}
+                              className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
+                                candidate.status === 'selected'
+                                  ? 'bg-green-500 text-white hover:bg-green-600'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Select
+                            </button>
+                            <button
+                              onClick={() => handleReject(candidate.id)}
+                              className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
+                                candidate.status === 'rejected'
+                                  ? 'bg-red-500 text-white hover:bg-red-600'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

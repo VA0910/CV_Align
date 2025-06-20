@@ -43,7 +43,7 @@ const ManageCVs = () => {
 
   const fetchCVs = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/candidates/recruiter', {
+      const response = await axios.get('http://localhost:8000/recruiter', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -109,9 +109,8 @@ const ManageCVs = () => {
   };
 
   const handleViewFeedback = (cv) => {
-    console.log('Candidate data:', cv);
-    console.log('Navigating to:', `/recruiter/feedback/${cv.id}`);
-    navigate(`/recruiter/feedback/${cv.id}`);
+    const candidateId = cv.id || cv._id;
+    navigate(`/recruiter/feedback/${candidateId}`);
   };
 
   const filteredCVs = useMemo(() => {
@@ -244,7 +243,7 @@ const ManageCVs = () => {
                 </thead>
                 <tbody>
                   {filteredCVs.map((cv) => (
-                    <tr key={cv._id} className="border-t border-gray-400">
+                    <tr key={cv.id || cv._id} className="border-t border-gray-400">
                       <td className="py-4">{cv.candidate_name}</td>
                       <td className="py-4">{cv.job_role_title}</td>
                       <td className="py-4">
@@ -305,13 +304,13 @@ const ManageCVs = () => {
                           )}
                           <button
                             onClick={() => handleViewFeedback(cv)}
-                            className="text-[#008B8B] hover:text-[#006666]"
+                            className="text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors"
                           >
                             View Feedback
                           </button>
                           <button
-                            onClick={() => handleDelete(cv.id)}
-                            className="text-red-600 hover:text-red-800"
+                            onClick={() => handleDelete(cv.id || cv._id)}
+                            className="text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
                           >
                             Delete
                           </button>

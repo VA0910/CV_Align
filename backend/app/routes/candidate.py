@@ -195,6 +195,8 @@ async def upload_candidate_cv(
             insert_result = await collection.insert_one(candidate_doc)
             candidate_doc["_id"] = insert_result.inserted_id
             
+            await increment_total_cvs_counter()
+            
             return CandidateResponse(**convert_id(candidate_doc))
         except Exception as e:
             logging.error(f"Database operation failed: {str(e)}")
@@ -248,16 +250,22 @@ async def get_recruiter_candidates(current_user: User = Depends(get_current_user
 
 @router.get("/candidates/company", response_model=List[CandidateResponse])
 async def get_company_candidates(current_user: User = Depends(get_current_user)):
-    if current_user.role != "hiring_manager":
-        raise HTTPException(status_code=403, detail="Only hiring managers can view all candidates.")
-    # Find all job roles for this company
-    job_roles = await db.get_collection("job_roles").find({"company_id": current_user.company_code}).to_list(length=None)
-    job_role_ids = [str(jr["_id"]) for jr in job_roles]
-    collection = db.get_collection("candidates")
-    candidates = await collection.find({"job_role_id": {"$in": job_role_ids}}).to_list(length=None)
-    return [CandidateResponse(**convert_id(c)) for c in candidates]
+    if current_user.role == "admin":
+        # Admin: return all CVs
+        collection = db.get_collection("candidates")
+        candidates = await collection.find({}).to_list(length=None)
+        return [CandidateResponse(**convert_id(c)) for c in candidates]
+    elif current_user.role == "hiring_manager":
+        # Hiring manager: return CVs for their company
+        job_roles = await db.get_collection("job_roles").find({"company_id": current_user.company_code}).to_list(length=None)
+        job_role_ids = [str(jr["_id"]) for jr in job_roles]
+        collection = db.get_collection("candidates")
+        candidates = await collection.find({"job_role_id": {"$in": job_role_ids}}).to_list(length=None)
+        return [CandidateResponse(**convert_id(c)) for c in candidates]
+    else:
+        raise HTTPException(status_code=403, detail="Only admins or hiring managers can view all candidates.")
 
-@router.get("/{candidate_id}", response_model=CandidateResponse)
+@router.get("/candidates/{candidate_id}", response_model=CandidateResponse)
 async def get_candidate(candidate_id: str, current_user: User = Depends(get_current_user)):
     try:
         object_id = ObjectId(candidate_id)
@@ -287,9 +295,6 @@ async def update_candidate_status(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid candidate ID")
     
-    if current_user.role != "recruiter":
-        raise HTTPException(status_code=403, detail="Only recruiters can update candidate status")
-    
     new_status = status_update.get("status")
     if new_status not in ["pending", "selected", "rejected", "shortlisted"]:
         raise HTTPException(status_code=400, detail="Invalid status value")
@@ -300,9 +305,18 @@ async def update_candidate_status(
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     
-    # Check if user has permission to update this candidate
-    if str(candidate["recruiter_id"]) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="You don't have permission to update this candidate")
+    # Recruiter: can only update their own candidates
+    if current_user.role == "recruiter":
+        if str(candidate["recruiter_id"]) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="You don't have permission to update this candidate")
+    # Hiring manager: can update any candidate for their company
+    elif current_user.role == "hiring_manager":
+        # Get job role to check company
+        job_role = await db.get_collection("job_roles").find_one({"_id": ObjectId(candidate["job_role_id"])})
+        if not job_role or job_role.get("company_id") != current_user.company_code:
+            raise HTTPException(status_code=403, detail="You don't have permission to update this candidate")
+    else:
+        raise HTTPException(status_code=403, detail="Only recruiters or hiring managers can update candidate status")
     
     # Update the status
     result = await collection.update_one(
@@ -319,14 +333,11 @@ async def update_candidate_status(
 
 @router.delete("/{candidate_id}")
 async def delete_candidate(candidate_id: str, current_user: User = Depends(get_current_user)):
-    """Delete a candidate (only recruiters can delete their own candidates)"""
+    """Delete a candidate (recruiters can delete their own, hiring managers can delete for their company)"""
     try:
         object_id = ObjectId(candidate_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid candidate ID")
-    
-    if current_user.role != "recruiter":
-        raise HTTPException(status_code=403, detail="Only recruiters can delete candidates")
     
     collection = db.get_collection("candidates")
     candidate = await collection.find_one({"_id": object_id})
@@ -334,9 +345,18 @@ async def delete_candidate(candidate_id: str, current_user: User = Depends(get_c
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     
-    # Check if user has permission to delete this candidate
-    if str(candidate["recruiter_id"]) != str(current_user.id):
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this candidate")
+    # Recruiter: can only delete their own candidates
+    if current_user.role == "recruiter":
+        if str(candidate["recruiter_id"]) != str(current_user.id):
+            raise HTTPException(status_code=403, detail="You don't have permission to delete this candidate")
+    # Hiring manager: can delete any candidate for their company
+    elif current_user.role == "hiring_manager":
+        # Get job role to check company
+        job_role = await db.get_collection("job_roles").find_one({"_id": ObjectId(candidate["job_role_id"])})
+        if not job_role or job_role.get("company_id") != current_user.company_code:
+            raise HTTPException(status_code=403, detail="You don't have permission to delete this candidate")
+    else:
+        raise HTTPException(status_code=403, detail="Only recruiters or hiring managers can delete candidates")
     
     # Delete the candidate
     result = await collection.delete_one({"_id": object_id})
@@ -344,4 +364,12 @@ async def delete_candidate(candidate_id: str, current_user: User = Depends(get_c
     if result.deleted_count == 0:
         raise HTTPException(status_code=500, detail="Failed to delete candidate")
     
-    return {"message": "Candidate deleted successfully"} 
+    return {"message": "Candidate deleted successfully"}
+
+async def increment_total_cvs_counter():
+    stats_collection = db.get_collection("stats")
+    await stats_collection.update_one(
+        {"_id": "total_cvs_processed"},
+        {"$inc": {"count": 1}},
+        upsert=True
+    ) 

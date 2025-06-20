@@ -39,7 +39,7 @@ function RecruiterDashboard() {
 
   const fetchCandidates = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/candidates/recruiter', {
+      const response = await axios.get('http://localhost:8000/recruiter', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -52,7 +52,7 @@ function RecruiterDashboard() {
 
   const handleSelect = async (id) => {
     try {
-      await axios.patch(`http://localhost:8000/candidates/${id}/status`, {
+      await axios.patch(`http://localhost:8000/${id}/status`, {
         status: 'selected'
       }, {
         headers: {
@@ -68,7 +68,7 @@ function RecruiterDashboard() {
 
   const handleReject = async (id) => {
     try {
-      await axios.patch(`http://localhost:8000/candidates/${id}/status`, {
+      await axios.patch(`http://localhost:8000/${id}/status`, {
         status: 'rejected'
       }, {
         headers: {

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.company import Company
-from app.schemas.company import CompanyCreate
+from app.models.company import Company, CompanyCreate
+from app.database import get_db
 from app.utils.code_utils import generate_unique_code
 
 def create_company(db: Session, company: CompanyCreate):

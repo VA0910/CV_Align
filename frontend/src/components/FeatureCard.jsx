@@ -10,8 +10,7 @@ function FeatureCard({ title, hoverType }) {
       <h2 className="text-xl font-bold mb-4">{title}</h2>
       <div className="rounded-xl w-full h-40 bg-white mb-4"></div>
       <p className="text-sm text-gray-200">
-        feature description <br />
-        on hover: {hoverType === "color" ? "color changes to lighter" : "color opacity increases"} and card becomes of size 1.1 timesx
+         
       </p>
     </div>
   );

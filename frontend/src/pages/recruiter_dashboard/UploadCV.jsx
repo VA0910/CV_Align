@@ -103,7 +103,7 @@ function UploadCV() {
       formData.append('job_description', jobRoleData.description);
 
       // Upload CV
-      const response = await axios.post('http://localhost:8000/candidates/candidates/upload', formData, {
+      const response = await axios.post('http://localhost:8000/candidates/upload', formData, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'

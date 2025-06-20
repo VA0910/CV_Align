@@ -10,7 +10,7 @@ MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "cv_align")
 
 class Database:
-    client: Optional[AsyncIOMotorClient] = None
+    client = None  # type: Optional[AsyncIOMotorClient]
     db = None
 
     @classmethod
@@ -35,7 +35,7 @@ class Database:
     @classmethod
     async def close_db(cls):
         if cls.client:
-            await cls.client.close()
+            cls.client.close()
             logging.info("Closed MongoDB connection")
 
     @classmethod
