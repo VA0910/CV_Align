@@ -187,17 +187,17 @@ You receive a score, strengths and weaknesses based on the job requirements, and
 Track past evaluations, compare changes, and view insights.
 
 
-🔐 Role-Based Dashboard
+# 🔐 Role-Based Dashboard
 
 CV Align features a structured access control system with three user roles, each with distinct privileges:
 
-👤 Recruiter
+- 👤 Recruiter
 
 Upload and manage candidate CVs
 View AI-generated feedback and alignment scores
 Accept or Reject candidates based on evaluation
 
-🧑‍💼 Hiring Manager
+- 🧑‍💼 Hiring Manager
 
 Has all recruiter privileges
 
@@ -207,7 +207,7 @@ View recruiter performance stats
 Shortlist or Reject recruiter-selected candidates to create a final list
 Manage the recruitment funnel from job posting to final selection
 
-🛠 Admin
+- 🛠 Admin
 
 Full platform oversight
 View and manage all users, CVs, and job descriptions
@@ -221,7 +221,7 @@ python create_admin.py
 
 This script will prompt you for admin credentials and securely store them in the database.
 
-📸 Screenshots
+# 📸 Screenshots
 
 Landing Page
 ![image](https://github.com/user-attachments/assets/c98baa36-66d5-464e-af57-75d383f8374b)
