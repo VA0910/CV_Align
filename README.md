@@ -1,5 +1,5 @@
 
-CV Align - AI-Powered CV Evaluator
+# CV Align - AI-Powered CV Evaluator
 Align your CV to job descriptions using intelligent, recruiter-style feedback
 
 </div>
