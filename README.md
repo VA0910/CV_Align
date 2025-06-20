@@ -222,13 +222,36 @@ python create_admin.py
 This script will prompt you for admin credentials and securely store them in the database.
 
 📸 Screenshots
-Recruiter Dashboard
+
+Landing Page
+![image](https://github.com/user-attachments/assets/c98baa36-66d5-464e-af57-75d383f8374b)
+
+Sign In Page
+![image](https://github.com/user-attachments/assets/0ff5c80b-9201-4144-86c6-1a37978bfc7a)
+
+Sign Up Page
+![image](https://github.com/user-attachments/assets/4fb5b002-791f-4289-9101-4462ff681b7d)
 
 Upload CV & JD
+![image](https://github.com/user-attachments/assets/a756cbe1-ffeb-4556-bbd8-a88840cf693c)
 
 Feedback Section
+![image](https://github.com/user-attachments/assets/1bcdda0b-f7f5-410f-b26b-5a3415986b30)
 
-Performance Chart
+Recruiter Dashboard
+![image](https://github.com/user-attachments/assets/1012bd2b-1929-44e5-a4ba-8214f929d3a4)
+![image](https://github.com/user-attachments/assets/63f9aa9a-3f3f-4972-bd75-18ddd3ecce28)
+
+Hiring Manager Dashboard
+![image](https://github.com/user-attachments/assets/e97b4988-a35e-43e6-b561-4960eff0dacb)
+![image](https://github.com/user-attachments/assets/7f594618-7c5e-4e26-ade6-1f7b28023a7d)
+![image](https://github.com/user-attachments/assets/4136f3dd-9b53-4d35-9ba5-99dadde3e003)
+![image](https://github.com/user-attachments/assets/c7b654e4-c688-4ce5-8370-38ca346c6ff0)
+![image](https://github.com/user-attachments/assets/b6e82062-f6ba-41ec-ad78-d2f0326d2dad)
+
+Admin Dashboard
+![image](https://github.com/user-attachments/assets/00a6d286-e0ff-4ab4-94df-2c5d70dcbf02)
+![image](https://github.com/user-attachments/assets/7558c0f4-abfc-4d20-af17-29aefdb5a74b)
 
 👨‍💻 Authors
 
