@@ -23,14 +23,6 @@ class JobRoleModel(BaseModel):
     id: Optional[PyObjectId] = Field(default=None, alias="_id")
     title: str
     description: str
-    type: str
-    department: str
-    location: str
-    education: str
-    skills: List[str]
-    experience: str
-    deadline: datetime
-    requirements: Optional[str] = None
     company_id: str
     status: str = "Active"
     applications_count: int = 0
@@ -53,40 +45,16 @@ class JobRoleModel(BaseModel):
 class JobRoleCreate(BaseModel):
     title: str
     description: str
-    type: str
-    department: str
-    location: str
-    education: str
-    skills: List[str]
-    experience: str
-    deadline: datetime
-    requirements: Optional[str] = None
 
 class JobRoleUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
-    type: Optional[str] = None
-    department: Optional[str] = None
-    location: Optional[str] = None
-    education: Optional[str] = None
-    skills: Optional[List[str]] = None
-    experience: Optional[str] = None
-    deadline: Optional[datetime] = None
-    requirements: Optional[str] = None
     status: Optional[str] = None
 
 class JobRoleResponse(BaseModel):
     id: str = Field(alias="_id")
     title: str
     description: str
-    type: str
-    department: str
-    location: str
-    education: str
-    skills: List[str]
-    experience: str
-    deadline: datetime
-    requirements: Optional[str]
     company_id: str
     status: str
     applications_count: int

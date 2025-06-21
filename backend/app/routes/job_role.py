@@ -26,9 +26,6 @@ async def create_job_role(job_role: JobRoleCreate, current_user: User = Depends(
     if current_user.role != "hiring_manager":
         raise HTTPException(status_code=403, detail="Only hiring managers can create job roles")
     
-    # Convert skills string to list if it's a string
-    if isinstance(job_role.skills, str):
-        job_role.skills = [skill.strip() for skill in job_role.skills.split(",")]
     
     job_role_dict = job_role.model_dump()
     job_role_dict["company_id"] = current_user.company_code
