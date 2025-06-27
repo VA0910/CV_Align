@@ -373,3 +373,4 @@ async def increment_total_cvs_counter():
         {"$inc": {"count": 1}},
         upsert=True
     ) 
+

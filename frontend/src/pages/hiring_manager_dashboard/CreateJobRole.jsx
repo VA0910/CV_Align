@@ -94,7 +94,7 @@ const CreateJobRole = () => {
               </label>
               <textarea
                 name="description"
-                rows={10} // Bigger textarea
+                rows={10}
                 className="w-full bg-[#F4FFF9]/56 rounded-lg px-4 py-3 text-[#01295B] font-semibold placeholder-gray-300 focus:outline-none resize-none"
                 value={jobRole.description}
                 onChange={handleInputChange}

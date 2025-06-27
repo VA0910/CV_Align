@@ -13,7 +13,7 @@ def send_cv_to_ai_server(cv_file, jd_text):
     """Send CV file and job description to the deployed AI API."""
     try:
         files = {"cv": ("cv.pdf", cv_file, "application/pdf")}
-        data = {"jd": jd_text}  # Changed from "job_description" to "jd"
+        data = {"jd": jd_text}  
         
         logger.info(f"Sending request to deployed AI API: {AI_API_URL}")
         logger.info(f"Job description length: {len(jd_text)}")

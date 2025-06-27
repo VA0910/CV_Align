@@ -59,7 +59,7 @@ const Feedback = () => {
     setUpdating(true);
     try {
       const response = await axios.patch(
-        `http://localhost:8000/candidates/${candidateId}/status`,
+        `http://localhost:8000/${candidateId}/status`,
         { status: 'selected' },
         {
           headers: {
@@ -80,7 +80,7 @@ const Feedback = () => {
     setUpdating(true);
     try {
       const response = await axios.patch(
-        `http://localhost:8000/candidates/${candidateId}/status`,
+        `http://localhost:8000/${candidateId}/status`,
         { status: 'rejected' },
         {
           headers: {
