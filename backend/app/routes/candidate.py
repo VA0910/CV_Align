@@ -193,6 +193,11 @@ async def upload_candidate_cv(
         try:
             collection = db.get_collection("candidates")
             insert_result = await collection.insert_one(candidate_doc)
+            await db.get_collection("job_roles").update_one(
+                {"_id": ObjectId(job_role_id)},
+                {"$inc": {"applications_count": 1}}
+            )
+
             candidate_doc["_id"] = insert_result.inserted_id
             
             await increment_total_cvs_counter()
@@ -329,6 +334,11 @@ async def update_candidate_status(
     
     # Return updated candidate
     updated_candidate = await collection.find_one({"_id": object_id})
+    if new_status == "shortlisted": await db.get_collection("job_roles").update_one(
+        {"_id": ObjectId(candidate["job_role_id"])},
+        {"$inc": {"shortlisted_count": 1}}
+    )
+
     return CandidateResponse(**convert_id(updated_candidate))
 
 @router.delete("/{candidate_id}")

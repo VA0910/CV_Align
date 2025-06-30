@@ -78,16 +78,7 @@ async def get_admin_metrics(current_user: User = Depends(get_current_user)):
         "most_accessed_endpoint": most_accessed_endpoint
     }
 
-@router.get("/metrics/")
-async def get_metrics(current_user: User = Depends(get_current_user)):
-    if current_user.role == "recruiter":
-        # ... recruiter metrics logic ...
-        return {...}
-    elif current_user.role == "hiring_manager":
-        # ... hiring manager metrics logic ...
-        return {...}
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized")
+
 
 @router.get("/admin/api-calls-over-time")
 async def api_calls_over_time(current_user: User = Depends(get_current_user)):

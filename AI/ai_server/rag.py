@@ -208,8 +208,8 @@ def parse_output(output):
     """Parse the AI model output into a structured format."""
     try:
         # Use regex to extract fields from the output string
-        def extract(pattern, text, default=""):
-            match = re.search(pattern, text, re.MULTILINE)
+        def extract(pattern, text, default="", flags=0):
+            match = re.search(pattern, text, flags)
             return match.group(1).strip() if match else default
 
         # Check if candidate is eligible
@@ -228,11 +228,12 @@ def parse_output(output):
             "degree": extract(r"\*\*Degree\*\*:\s*(.*)", output),
             "course": extract(r"\*\*Course/Major\*\*:\s*(.*)", output),
             "ats_score": int(extract(r"\*\*ATS Score\*\*:\s*(\d+)", output) or 0),
-            "strengths": re.findall(r"\*\*Strengths\*\*:\s*- (.*)", output),
-            "weaknesses": re.findall(r"\*\*Weaknesses\*\*:\s*- (.*)", output),
-            "feedback": extract(r"\*\*Feedback\*\*:(.*?)(?=\*\*Detailed Feedback\*\*|$)", output, default="").strip(),
-            "detailed_feedback": extract(r"\*\*Detailed Feedback\*\*:(.*)", output, default="").strip()
+            "strengths": re.findall(r"- (.*)", extract(r"\*\*Strengths\*\*:(.*?)(?=\*\*Weaknesses\*\*)", output, flags=re.DOTALL)),
+            "weaknesses": re.findall(r"- (.*)", extract(r"\*\*Weaknesses\*\*:(.*?)(?=\*\*Feedback\*\*)", output, flags=re.DOTALL)),
+            "feedback": extract(r"\*\*Feedback\*\*:(.*?)(?=\*\*Detailed Feedback\*\*|$)", output, flags=re.DOTALL).strip(),
+            "detailed_feedback": extract(r"\*\*Detailed Feedback\*\*:(.*)", output, flags=re.DOTALL).strip()
         }
+
     except Exception as e:
         logger.error(f"Error parsing AI output: {str(e)}")
         return {

@@ -181,7 +181,7 @@ const Feedback = () => {
             {/* Feedback Summary */}
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-white mb-4">Feedback Summary</h2>
-              <p className="text-white opacity-90">
+              <p className="text-white opacity-90 whitespace-pre-line">
                 {candidate.feedback}
               </p>
             </div>
@@ -246,7 +246,7 @@ const Feedback = () => {
             {/* Detailed Feedback */}
             <div className="bg-gray-200/70 rounded-lg p-6">
               <h2 className="text-2xl font-bold text-white mb-4">Detailed Feedback</h2>
-              <p className="text-[#01295B] font-roboto font-semibold leading-relaxed">
+              <p className="text-[#01295B] font-roboto font-semibold leading-relaxed whitespace-pre-line">
                 {candidate.detailed_feedback}
               </p>
             </div>
