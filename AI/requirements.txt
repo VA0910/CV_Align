@@ -1,0 +1,13 @@
+langchain_openai
+langchain_core
+python-dotenv
+streamlit
+langchain_community
+beautifulsoup4
+pypdf
+faiss-cpu
+langchain_google_genai
+fastapi
+uvicorn
+langchain_groq
+python-multipart

@@ -1,29 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import UserFilters from '../../components/UserFilters';
 import DashboardNavbar from '../../components/AdminNavbar';
+import { useAuth } from '../../contexts/AuthContext';
 
 function ManageUsers() {
-  // Mock data - replace with actual API data later
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'Vaishnavi',
-      email: 'vaishnav0910@gmail.com',
-      company: 'XYZ',
-      role: 'Recruiter',
-      apiCalls: 30,
-      isEnabled: true
-    },
-    {
-      id: 2,
-      name: 'Jinay',
-      email: 'vaishnav0910@gmail.com',
-      company: 'XYZ',
-      role: 'Hiring Manager',
-      apiCalls: 30,
-      isEnabled: true
-    }
-  ]);
+  const { token } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [filters, setFilters] = useState({
     name: '',
@@ -37,6 +21,29 @@ function ManageUsers() {
     key: null,
     direction: 'asc'
   });
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch('http://localhost:8000/users/all/', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!res.ok) throw new Error('Failed to fetch users');
+        const data = await res.json();
+        setUsers(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, [token]);
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -72,12 +79,12 @@ function ManageUsers() {
 
   const filteredUsers = useMemo(() => {
     let filtered = users.filter(user => {
-      const nameMatch = user.name.toLowerCase().includes(filters.name.toLowerCase()) || !filters.name;
-      const companyMatch = user.company.toLowerCase().includes(filters.company.toLowerCase()) || !filters.company;
+      const nameMatch = user.full_name?.toLowerCase().includes(filters.name.toLowerCase()) || !filters.name;
+      const companyMatch = user.company_code?.toLowerCase().includes(filters.company.toLowerCase()) || !filters.company;
       const roleMatch = user.role === filters.role || !filters.role;
       const statusMatch = 
-        (filters.status === 'enabled' && user.isEnabled) ||
-        (filters.status === 'disabled' && !user.isEnabled) ||
+        (filters.status === 'enabled' && user.is_active) ||
+        (filters.status === 'disabled' && !user.is_active) ||
         !filters.status;
 
       return nameMatch && companyMatch && roleMatch && statusMatch;
@@ -90,10 +97,10 @@ function ManageUsers() {
         let bValue = b[sortConfig.key];
 
         // Handle special cases
-        if (sortConfig.key === 'isEnabled') {
+        if (sortConfig.key === 'is_active') {
           return sortConfig.direction === 'asc'
-            ? Number(a.isEnabled) - Number(b.isEnabled)
-            : Number(b.isEnabled) - Number(a.isEnabled);
+            ? Number(a.is_active) - Number(b.is_active)
+            : Number(b.is_active) - Number(a.is_active);
         }
 
         // Convert to lowercase for string comparison
@@ -111,26 +118,41 @@ function ManageUsers() {
     return filtered;
   }, [users, filters, sortConfig]);
 
-  const handleToggleStatus = (userId) => {
-    // TODO: Add API call here to update user status
-    setUsers(prevUsers =>
-      prevUsers.map(user =>
-        user.id === userId
-          ? { ...user, isEnabled: !user.isEnabled }
-          : user
-      )
-    );
+  const handleToggleStatus = async (userId) => {
+    try {
+      const res = await fetch(`http://localhost:8000/users/${userId}/toggle-status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      
+      const data = await res.json();
+      
+      setUsers(prevUsers =>
+        prevUsers.map(user => {
+          const currentId = user.id || user._id;
+          if (currentId === userId) {
+            return { ...user, is_active: data.is_active };
+          }
+          return user;
+        })
+      );
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   // Column configuration
   const columns = [
     { key: 'id', label: 'S.No.', sortable: true },
-    { key: 'name', label: 'Name', sortable: true },
+    { key: 'full_name', label: 'Name', sortable: true },
     { key: 'email', label: 'Email Address', sortable: true },
-    { key: 'company', label: 'Company', sortable: true },
+    { key: 'company_code', label: 'Company', sortable: true },
     { key: 'role', label: 'Role', sortable: true },
-    { key: 'apiCalls', label: 'API calls', sortable: true },
-    { key: 'isEnabled', label: 'Enable/Disable', sortable: true }
+    { key: 'apiCalls', label: 'API calls', sortable: false },
+    { key: 'is_active', label: 'Enable/Disable', sortable: true }
   ];
 
   return (
@@ -146,6 +168,11 @@ function ManageUsers() {
             <UserFilters onFilterChange={handleFilterChange} />
           </div>
 
+          {loading ? (
+            <div className="text-center py-8">Loading users...</div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">{error}</div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -169,44 +196,33 @@ function ManageUsers() {
               <tbody>
                 {filteredUsers.map((user, index) => (
                   <tr 
-                    key={user.id}
+                    key={user.id || user._id}
                     className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors"
                   >
                     <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
-                    <td className="py-3 px-4 text-[#01295B] font-medium">{user.name}</td>
+                    <td className="py-3 px-4 text-[#01295B] font-medium">{user.full_name}</td>
                     <td className="py-3 px-4 text-[#01295B]">{user.email}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{user.company}</td>
+                    <td className="py-3 px-4 text-[#01295B]">{user.company_code}</td>
                     <td className="py-3 px-4 text-[#01295B]">{user.role}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{user.apiCalls}</td>
+                    <td className="py-3 px-4 text-[#01295B]">{user.apiCalls || 'N/A'}</td>
                     <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => handleToggleStatus(user.id)}
-                          className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
-                            user.isEnabled
-                              ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                              : 'bg-[#008B8B] text-white hover:bg-[#007a7a]'
-                          }`}
-                        >
-                          Enable
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(user.id)}
-                          className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
-                            user.isEnabled
-                              ? 'bg-red-500 text-white hover:bg-red-600'
-                              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                          }`}
-                        >
-                          Disable
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleToggleStatus(user.id || user._id)}
+                        className={`px-3 py-1 text-sm rounded-full ${
+                          user.is_active 
+                            ? 'bg-green-200 text-green-800 hover:bg-green-300'
+                            : 'bg-red-200 text-red-800 hover:bg-red-300'
+                        }`}
+                      >
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,45 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import RecruiterNavbar from '../../components/RecruiterNavbar';
+import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const ManageCandidates = () => {
-  const [candidates, setCandidates] = useState([
-    {
-      id: 1,
-      name: 'John Doe',
-      position: 'Software Engineer',
-      score: 95,
-      ViewFeedback: 'https://view.feedback/1',
-      isSelected: false,
-      isRejected: false
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      position: 'Product Manager',
-      score: 88,
-      ViewFeedback: 'https://view.feedback/2',
-      isSelected: false,
-      isRejected: false
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      position: 'UX Designer',
-      score: 92,
-      ViewFeedback: 'https://view.feedback/3',
-      isSelected: true,
-      isRejected: false
-    },
-    {
-      id: 4,
-      name: 'Sarah Wilson',
-      position: 'Data Scientist',
-      score: 85,
-      ViewFeedback: 'https://view.feedback/4',
-      isSelected: false,
-      isRejected: true
-    }
-  ]);
+  const { token } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [candidates, setCandidates] = useState([]);
+  const navigate = useNavigate();
 
   const [filters, setFilters] = useState({
     name: '',
@@ -52,6 +22,25 @@ const ManageCandidates = () => {
     key: null,
     direction: 'asc'
   });
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [token]);
+
+  const fetchCandidates = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/recruiter', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setCandidates(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to fetch candidates');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -92,18 +81,12 @@ const ManageCandidates = () => {
 
   const handleSelect = async (id) => {
     try {
-      // TODO: Add API call to update candidate status
-      setCandidates(prevData =>
-        prevData.map(candidate =>
-          candidate.id === id
-            ? { 
-                ...candidate, 
-                isSelected: !candidate.isSelected, // Toggle selection
-                isRejected: false // Clear rejection if selecting
-              }
-            : candidate
-        )
-      );
+      await axios.patch(`http://localhost:8000/${id}/status`, { status: 'selected' }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      fetchCandidates(); // Refresh the candidates list
     } catch (error) {
       console.error('Error updating candidate status:', error);
     }
@@ -111,35 +94,27 @@ const ManageCandidates = () => {
 
   const handleReject = async (id) => {
     try {
-      // TODO: Add API call to update candidate status
-      setCandidates(prevData =>
-        prevData.map(candidate =>
-          candidate.id === id
-            ? { 
-                ...candidate, 
-                isRejected: !candidate.isRejected, // Toggle rejection
-                isSelected: false // Clear selection if rejecting
-              }
-            : candidate
-        )
-      );
+      await axios.patch(`http://localhost:8000/${id}/status`, { status: 'rejected' }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      fetchCandidates(); // Refresh the candidates list
     } catch (error) {
       console.error('Error updating candidate status:', error);
     }
   };
 
   const getStatusFromFilters = (candidate) => {
-    if (candidate.isSelected) return 'selected';
-    if (candidate.isRejected) return 'rejected';
-    return 'pending';
+    return candidate.status;
   };
 
   const filteredCandidates = useMemo(() => {
     let filtered = candidates.filter(candidate => {
-      const nameMatch = candidate.name.toLowerCase().includes(filters.name.toLowerCase()) || !filters.name;
-      const positionMatch = candidate.position.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
-      const scoreMatch = isScoreInRange(candidate.score, filters.scoreRange);
-      const statusMatch = !filters.status || getStatusFromFilters(candidate) === filters.status;
+      const nameMatch = candidate.candidate_name?.toLowerCase().includes(filters.name.toLowerCase()) || !filters.name;
+      const positionMatch = candidate.job_role_title?.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
+      const scoreMatch = isScoreInRange(candidate.ats_score, filters.scoreRange);
+      const statusMatch = !filters.status || candidate.status === filters.status;
 
       return nameMatch && positionMatch && scoreMatch && statusMatch;
     });
@@ -165,12 +140,34 @@ const ManageCandidates = () => {
 
   const columns = [
     { key: 'serialNo', label: 'S.No', sortable: false },
-    { key: 'name', label: 'Candidate Name', sortable: true },
-    { key: 'position', label: 'Applied Role', sortable: true },
-    { key: 'score', label: 'Score', sortable: true },
-    { key: 'ViewFeedback', label: 'Generated Feedback', sortable: false },
+    { key: 'candidate_name', label: 'Candidate Name', sortable: true },
+    { key: 'job_role_title', label: 'Applied Role', sortable: true },
+    { key: 'ats_score', label: 'Score', sortable: true },
+    { key: 'feedback', label: 'Generated Feedback', sortable: false },
     { key: 'actions', label: 'Actions', sortable: false }
   ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <div className="px-36 py-6">
+          <div className="text-white text-center">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <div className="px-36 py-6">
+          <div className="text-red-500 text-center">{error}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#001F3F]">
@@ -240,9 +237,10 @@ const ManageCandidates = () => {
                   onChange={(e) => handleFilterChange('status', e.target.value)}
                 >
                   <option value="">All Status</option>
+                  <option value="pending">Pending</option>
                   <option value="selected">Selected</option>
                   <option value="rejected">Rejected</option>
-                  <option value="pending">Pending</option>
+                  <option value="shortlisted">Shortlisted</option>
                 </select>
               </div>
             </div>
@@ -275,14 +273,14 @@ const ManageCandidates = () => {
                     className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors"
                   >
                     <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
-                    <td className="py-3 px-4 text-[#01295B] font-medium">{candidate.name}</td>
-                    <td className="py-3 px-4 text-[#01295B]">{candidate.position}</td>
-                    <td className={`py-3 px-4 font-medium ${getScoreColor(candidate.score)}`}>
-                      {candidate.score}%
+                    <td className="py-3 px-4 text-[#01295B] font-medium">{candidate.candidate_name}</td>
+                    <td className="py-3 px-4 text-[#01295B]">{candidate.job_role_title}</td>
+                    <td className={`py-3 px-4 font-medium ${getScoreColor(candidate.ats_score)}`}>
+                      {candidate.ats_score}%
                     </td>
                     <td className="py-3 px-4">
                       <a 
-                        href={`/recruiter/feedback/${encodeURIComponent(candidate.name)}`}
+                        onClick={() => navigate(`/recruiter/feedback/${candidate.id || candidate._id}`)}
                         className="text-[#01295B] hover:underline hover:font-semibold"
                       >
                         View Feedback
@@ -290,26 +288,32 @@ const ManageCandidates = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => handleSelect(candidate.id)}
-                          className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
-                            candidate.isSelected
-                              ? 'bg-green-200 text-green-800'
-                              : 'bg-[#008B8B] text-white hover:bg-[#007a7a]'
-                          }`}
-                        >
-                          {candidate.isSelected ? 'Selected' : 'Select'}
-                        </button>
-                        <button
-                          onClick={() => handleReject(candidate.id)}
-                          className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
-                            candidate.isRejected
-                              ? 'bg-red-200 text-red-800'
-                              : 'bg-red-500 text-white hover:bg-red-600'
-                          }`}
-                        >
-                          {candidate.isRejected ? 'Rejected' : 'Reject'}
-                        </button>
+                        {candidate.status === 'shortlisted' ? (
+                          <span className="px-4 py-1 rounded-full text-sm font-semibold bg-blue-500 text-white">Shortlisted</span>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleSelect(candidate.id)}
+                              className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
+                                candidate.status === 'selected'
+                                  ? 'bg-green-500 text-white hover:bg-green-600'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Select
+                            </button>
+                            <button
+                              onClick={() => handleReject(candidate.id)}
+                              className={`px-4 py-1 rounded-full text-sm font-medium transition-colors ${
+                                candidate.status === 'rejected'
+                                  ? 'bg-red-500 text-white hover:bg-red-600'
+                                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              }`}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

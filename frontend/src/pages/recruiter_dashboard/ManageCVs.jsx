@@ -1,19 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import RecruiterNavbar from '../../components/RecruiterNavbar';
-import CVFilters from '../../components/CVFilters';
+import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const ManageCVs = () => {
-  const [cvData, setCvData] = useState([
-    { id: 1, fileName: 'cv_resume.pdf', position: 'Software Engineer', score: 95 },
-    { id: 2, fileName: 'cv_resume.pdf', position: 'Product Manager', score: 75 },
-    { id: 3, fileName: 'cv_resume.pdf', position: 'UX Designer', score: 25 },
-    { id: 4, fileName: 'cv_resume.pdf', position: 'Data Scientist', score: 88 },
-    { id: 5, fileName: 'cv_resume.pdf', position: 'DevOps Engineer', score: 65 },
-  ]);
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [cvData, setCvData] = useState([]);
+  const [jobRoles, setJobRoles] = useState([]);
 
   const [filters, setFilters] = useState({
-    position: '',
-    fileName: '',
+    jobRole: '',
+    candidateName: '',
     scoreRange: ''
   });
 
@@ -21,6 +22,40 @@ const ManageCVs = () => {
     key: null,
     direction: 'asc'
   });
+
+  useEffect(() => {
+    fetchCVs();
+    fetchJobRoles();
+  }, [token]);
+
+  const fetchJobRoles = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/job-roles', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setJobRoles(response.data);
+    } catch (err) {
+      console.error('Failed to fetch job roles:', err);
+    }
+  };
+
+  const fetchCVs = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/recruiter', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      console.log('CV Data:', response.data);
+      setCvData(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to fetch CVs');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -62,25 +97,30 @@ const ManageCVs = () => {
 
   const handleDelete = async (id) => {
     try {
-      // TODO: Add API call to delete CV
-      setCvData(prevData => prevData.filter(cv => cv.id !== id));
+      await axios.delete(`http://localhost:8000/candidates/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      fetchCVs(); // Refresh the CV list
     } catch (error) {
       console.error('Error deleting CV:', error);
     }
   };
 
-  const handleViewFeedback = (id) => {
-    // Implement feedback viewing logic
-    console.log('View feedback for CV:', id);
+  const handleViewFeedback = (cv) => {
+    const candidateId = cv.id || cv._id;
+    navigate(`/recruiter/feedback/${candidateId}`);
   };
 
   const filteredCVs = useMemo(() => {
     let filtered = cvData.filter(cv => {
-      const positionMatch = cv.position.toLowerCase().includes(filters.position.toLowerCase()) || !filters.position;
-      const fileNameMatch = cv.fileName.toLowerCase().includes(filters.fileName.toLowerCase()) || !filters.fileName;
-      const scoreMatch = isScoreInRange(cv.score, filters.scoreRange);
+      const jobRoleMatch = !filters.jobRole || cv.job_role_id === filters.jobRole;
+      const nameMatch = !filters.candidateName || 
+        cv.candidate_name?.toLowerCase().includes(filters.candidateName.toLowerCase());
+      const scoreMatch = isScoreInRange(cv.ats_score, filters.scoreRange);
 
-      return positionMatch && fileNameMatch && scoreMatch;
+      return jobRoleMatch && nameMatch && scoreMatch;
     });
 
     if (sortConfig.key) {
@@ -99,92 +139,191 @@ const ManageCVs = () => {
       });
     }
 
+    console.log('Filtered CVs:', filtered);
     return filtered;
   }, [cvData, filters, sortConfig]);
 
-  const columns = [
-    { key: 'id', label: 'S.No.', sortable: true },
-    { key: 'fileName', label: 'CVs', sortable: true },
-    { key: 'position', label: 'Position', sortable: true },
-    { key: 'score', label: 'Score', sortable: true },
-    { key: 'feedback', label: 'Generated Feedback', sortable: false },
-    { key: 'actions', label: '', sortable: false }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <div className="px-36 py-6">
+          <div className="text-white text-center">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#001F3F]">
+        <RecruiterNavbar />
+        <div className="px-36 py-6">
+          <div className="text-red-500 text-center">{error}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#001F3F]">
       <RecruiterNavbar />
       
-      <div className="px-36 py-6">
-        <h1 className="text-4xl font-bold text-white mb-8">Manage CVs</h1>
-        
-        <div className="bg-gray-300/80 rounded-lg p-6">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-[#01295B] mb-4">Filters:</h2>
-            <CVFilters onFilterChange={handleFilterChange} />
+      <main className="px-36 py-16">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-white mb-8">Manage CVs</h1>
+          
+          {/* Filters */}
+          <div className="bg-gray-300/80 rounded-lg p-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label htmlFor="jobRole" className="block text-[#01295B] font-medium mb-2">
+                  Job Role
+                </label>
+                <select
+                  id="jobRole"
+                  value={filters.jobRole}
+                  onChange={(e) => handleFilterChange('jobRole', e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#008B8B] bg-white"
+                >
+                  <option value="">All Roles</option>
+                  {jobRoles.map((role) => (
+                    <option key={role._id} value={role._id}>
+                      {role.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label htmlFor="candidateName" className="block text-[#01295B] font-medium mb-2">
+                  Candidate Name
+                </label>
+                <input
+                  type="text"
+                  id="candidateName"
+                  value={filters.candidateName}
+                  onChange={(e) => handleFilterChange('candidateName', e.target.value)}
+                  placeholder="Search by name"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#008B8B] bg-white"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="scoreRange" className="block text-[#01295B] font-medium mb-2">
+                  Score Range
+                </label>
+                <select
+                  id="scoreRange"
+                  value={filters.scoreRange}
+                  onChange={(e) => handleFilterChange('scoreRange', e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#008B8B] bg-white"
+                >
+                  <option value="">All Scores</option>
+                  <option value="90-100">90-100</option>
+                  <option value="80-89">80-89</option>
+                  <option value="70-79">70-79</option>
+                  <option value="0-69">Below 70</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-400">
-                  {columns.map(column => (
-                    <th 
-                      key={column.key}
-                      className={`py-3 px-4 text-left text-[#008B8B] font-medium ${
-                        column.sortable ? 'cursor-pointer hover:text-[#006d6d]' : ''
-                      }`}
-                      onClick={() => column.sortable && handleSort(column.key)}
-                    >
-                      <div className="flex items-center">
-                        {column.label}
-                        {column.sortable && <SortIndicator column={column.key} />}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCVs.map((cv, index) => (
-                  <tr 
-                    key={cv.id}
-                    className="border-b border-gray-300 hover:bg-gray-200/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 text-[#01295B]">{index + 1}</td>
-                    <td className="py-3 px-4">
-                      <a href="#" className="text-[#01295B] hover:underline font-medium">
-                        {cv.fileName}
-                      </a>
-                    </td>
-                    <td className="py-3 px-4 text-[#01295B]">{cv.position}</td>
-                    <td className={`py-3 px-4 font-medium ${getScoreColor(cv.score)}`}>
-                      {cv.score}%
-                    </td>
-                    <td className="py-3 px-4">
-                      <button
-                        onClick={() => handleViewFeedback(cv.id)}
-                        className="text-[#01295B] hover:underline font-medium"
-                      >
-                        View Feedback
-                      </button>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => handleDelete(cv.id)}
-                        className="px-4 py-1 bg-red-500 text-white rounded-full text-sm font-medium hover:bg-red-600 transition-colors"
-                      >
-                        Delete
-                      </button>
-                      </div>
-                    </td>
+          {/* CV List */}
+          <div className="bg-gray-300/80 rounded-lg p-6">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-[#01295B]">
+                    <th className="pb-4">Candidate Name</th>
+                    <th className="pb-4">Position</th>
+                    <th className="pb-4">Score</th>
+                    <th className="pb-4">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredCVs.map((cv) => (
+                    <tr key={cv.id || cv._id} className="border-t border-gray-400">
+                      <td className="py-4">{cv.candidate_name}</td>
+                      <td className="py-4">{cv.job_role_title}</td>
+                      <td className="py-4">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          cv.ats_score >= 80 ? 'bg-green-100 text-green-800' :
+                          cv.ats_score >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {cv.ats_score}%
+                        </span>
+                      </td>
+                      <td className="py-4">
+                        <div className="flex space-x-4">
+                          {cv.cv_url ? (
+                            <button
+                              onClick={() => {
+                                try {
+                                  // Ensure the URL is properly encoded and add Cloudinary parameters
+                                  const encodedUrl = encodeURI(cv.cv_url);
+                                  console.log('Opening CV URL:', encodedUrl);
+                                  
+                                  // Force open in new window with specific dimensions
+                                  const width = 800;
+                                  const height = 600;
+                                  const left = (window.screen.width - width) / 2;
+                                  const top = (window.screen.height - height) / 2;
+                                  
+                                  const windowFeatures = `
+                                    width=${width},
+                                    height=${height},
+                                    left=${left},
+                                    top=${top},
+                                    menubar=yes,
+                                    toolbar=yes,
+                                    location=yes,
+                                    status=yes,
+                                    scrollbars=yes,
+                                    resizable=yes
+                                  `.replace(/\s/g, '');
+                                  
+                                  const newWindow = window.open(encodedUrl, '_blank', windowFeatures);
+                                  
+                                  if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                                    // If popup is blocked, show instructions
+                                    alert('Please allow popups for this site to view CVs. You can also try right-clicking the link and selecting "Open in new tab".');
+                                  }
+                                } catch (error) {
+                                  console.error('Error opening CV:', error);
+                                  alert('Unable to open CV. Please try again or contact support.');
+                                }
+                              }}
+                              className="text-[#008B8B] hover:text-[#006666]"
+                            >
+                              View CV
+                            </button>
+                          ) : (
+                            <span className="text-gray-500">No CV URL</span>
+                          )}
+                          <button
+                            onClick={() => handleViewFeedback(cv)}
+                            className="text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors"
+                          >
+                            View Feedback
+                          </button>
+                          <button
+                            onClick={() => handleDelete(cv.id || cv._id)}
+                            className="text-white bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

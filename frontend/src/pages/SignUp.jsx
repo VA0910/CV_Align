@@ -1,27 +1,40 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const SignUp = () => {
   const navigate = useNavigate();
+  const { signup } = useAuth();
   const [formData, setFormData] = useState({
-    name: "",
+    full_name: "",
     email: "",
     password: "",
-    companyCode: "",
-    role: "",
+    company_code: "",
+    role: "recruiter",
   });
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Add your signup logic here
-    console.log("Form submitted:", formData);
+    try {
+      if (!["recruiter", "hiring_manager"].includes(formData.role)) {
+        setError("Please select a valid role");
+        return;
+      }
+
+      await signup(formData);
+      navigate('/signin');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'An error occurred during signup');
+    }
   };
 
   return (
@@ -47,16 +60,21 @@ const SignUp = () => {
         {/* Form */}
         <div className="w-full max-w-[460px]">
           <h1 className="text-[#A2E8DD] text-4xl font-bold mb-6">Hello!</h1>
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="name" className="block text-[#A2E8DD] mb-2">
-                Name
+              <label htmlFor="full_name" className="block text-[#A2E8DD] mb-2">
+                Full Name
               </label>
               <input
                 type="text"
-                id="name"
-                name="name"
-                value={formData.name}
+                id="full_name"
+                name="full_name"
+                value={formData.full_name}
                 onChange={handleChange}
                 className="w-full h-[45px] bg-transparent border-2 border-[#ffffff] rounded-[15px] py-2 px-6 text-white focus:outline-none focus:border-[#7FFFD4]"
                 required
@@ -91,14 +109,14 @@ const SignUp = () => {
               />
             </div>
             <div>
-              <label htmlFor="companyCode" className="block text-[#A2E8DD] mb-2">
+              <label htmlFor="company_code" className="block text-[#A2E8DD] mb-2">
                 Company Code
               </label>
               <input
                 type="text"
-                id="companyCode"
-                name="companyCode"
-                value={formData.companyCode}
+                id="company_code"
+                name="company_code"
+                value={formData.company_code}
                 onChange={handleChange}
                 className="w-full h-[45px] bg-transparent border-2 border-[#ffffff] rounded-[15px] py-2 px-6 text-white focus:outline-none focus:border-[#7FFFD4]"
                 required
@@ -116,18 +134,22 @@ const SignUp = () => {
                 className="w-full h-[45px] bg-[#001F3F] border-2 border-[#ffffff] rounded-[15px] py-2 px-6 text-white focus:outline-none focus:border-[#7FFFD4]"
                 required
               >
-                <option value="">Select a role</option>
-                <option value="employee">Recruiter</option>
-                <option value="hr">Hiring Manager</option>
+                <option value="recruiter">Recruiter</option>
+                <option value="hiring_manager">Hiring Manager</option>
               </select>
             </div>
             <button
               type="submit"
-              onClick={() => navigate('/')}
               className="w-full h-[50px] bg-[#A2E8DD] text-[#001F3F] font-semibold text-lg rounded-[15px] hover:bg-opacity-90 transition-all mt-4"
             >
               Sign Up
             </button>
+            <div className="text-center mt-4">
+              <span className="text-[#A2E8DD]">Already have an account? </span>
+              <Link to="/signin" className="text-[#7FFFD4] hover:underline">
+                Sign In
+              </Link>
+            </div>
           </form>
         </div>
       </div>

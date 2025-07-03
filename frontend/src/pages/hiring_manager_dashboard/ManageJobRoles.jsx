@@ -1,35 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HiringManagerNavbar from '../../components/HiringManagerNavbar';
+import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ManageJobRoles = () => {
   const navigate = useNavigate();
-  const [jobRoles, setJobRoles] = useState([
-    {
-      id: 1,
-      title: 'Senior Software Developer',
-      type: 'Full-time',
-      applications: 150,
-      shortlisted: 25,
-      status: 'Active'
-    },
-    {
-      id: 2,
-      title: 'Product Manager',
-      type: 'Full-time',
-      applications: 80,
-      shortlisted: 15,
-      status: 'Active'
-    },
-    {
-      id: 3,
-      title: 'UI/UX Designer',
-      type: 'Contract',
-      applications: 95,
-      shortlisted: 20,
-      status: 'Closed'
-    }
-  ]);
+  const { token } = useAuth();
+  const [jobRoles, setJobRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [filters, setFilters] = useState({
     title: '',
@@ -43,6 +23,25 @@ const ManageJobRoles = () => {
   });
 
   const jobTypes = ['Full-time', 'Part-time', 'Contract', 'Internship'];
+
+  useEffect(() => {
+    fetchJobRoles();
+  }, []);
+
+  const fetchJobRoles = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/job-roles/', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setJobRoles(response.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to fetch job roles');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -58,8 +57,21 @@ const ManageJobRoles = () => {
     }));
   };
 
-  const handleDeleteRole = (id) => {
-    setJobRoles(prev => prev.filter(role => role.id !== id));
+  const handleDeleteRole = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this job role?')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`http://localhost:8000/job-roles/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setJobRoles(prev => prev.filter(role => role.id !== id));
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete job role');
+    }
   };
 
   const SortIndicator = ({ column }) => {
@@ -90,6 +102,14 @@ const ManageJobRoles = () => {
     return result;
   }, [jobRoles, filters, sorting]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#001F3F] flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#001F3F]">
       <HiringManagerNavbar />
@@ -104,6 +124,12 @@ const ManageJobRoles = () => {
             + CREATE NEW JOB
           </button>
         </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
 
         <div className="bg-gray-300/80 rounded-lg p-6">
           <div className="mb-6">
